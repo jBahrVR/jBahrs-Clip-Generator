@@ -1,8 +1,12 @@
-# 🎬 jBahr's Clip Generator (v1.1.6 - Creator Edition)
+# 🎬 jBahr's Clip Generator
 
 An automated, AI-powered highlight extraction tool built specifically for high-immersion VR and gaming content creators. 
 
 Tired of scrubbing through 4-hour VODs looking for a 20-second highlight? **jBahr's Clip Generator** automatically downloads your streams (or processes your local OBS recordings), transcribes the audio locally using your GPU, and uses advanced LLMs (OpenAI or Google Gemini) to mathematically hunt down the funniest banter, the loudest jump scares, and the craziest clutches.
+
+**DISCLAIMER!**
+
+I am not a developer, I have entirely "Vibe Coded" this app as I was not finding any ideal solutions for auto clipping my VR content that didnt involve high costs and messy results. I am just sharing what I have made in the hopes that it helps other content creators out there generate solid content from their livestream vods or local recordings. 
 
 ## ✨ Key Features
 
