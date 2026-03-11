@@ -1,4 +1,4 @@
-# 🎬 jBahr's Clip Generator (v1.1.6 - Creator Edition)
+# 🎬 jBahr's Clip Generator
 
 An automated, AI-powered highlight extraction tool built specifically for high-immersion VR and gaming content creators. 
 
