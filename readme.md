@@ -2,7 +2,7 @@
 
 An automated, AI-powered highlight extraction tool built specifically for high-immersion VR and gaming content creators. 
 
-Tired of scrubbing through 4-hour VODs looking for a 20-second highlight? **jBahr's Clip Generator** automatically downloads your streams (or processes your local OBS recordings), transcribes the audio locally using your GPU, and uses advanced LLMs (OpenAI or Google Gemini) to mathematically hunt down the funniest banter, the loudest jump scares, and the craziest clutches.
+Tired of scrubbing through 4-hour VODs looking for a 20-second highlight? **jBahr's Clip Generator** automatically downloads your streams (or processes your local OBS recordings), transcribes the audio locally using your GPU, and uses advanced modern LLMs (Anthropic, DeepSeek, OpenAI, Google Gemini, xAI) to mathematically hunt down the funniest banter, the loudest jump scares, and the craziest clutches.
 
 **DISCLAIMER!**
 
@@ -11,34 +11,20 @@ I am not a developer, I have entirely "Vibe Coded" this app as I was not finding
 ## ✨ Key Features
 
 * **Audio Peak Detection (RMS Loudness Mapping):** Intercepts raw audio arrays to calculate RMS loudness, mapping chaotic peaks (`[LOUDNESS: 100%]`) alongside transcriptions so the AI can physically "hear" jump scares and screaming. (Built for VR!).
-* **Multi-Track Audio Downmixing:** Perfect for OBS users. Automatically downmixes multi-track setups (e.g., Game on Track 1, Mic on Track 2) into a single unified stereo track to guarantee your microphone is never lost on TikTok.
-* **GPU Hardware Encoding (NVENC/AMF):** Automatically leverages your Nvidia or Radeon GPU to execute the FFmpeg clipping filters, decimating the time it takes to render your final files. 
-* **Vertical Auto-Cropper (New in v1.1.6!):** Automatically converts horizontal esports gameplay into perfect 9:16 Shorts/TikToks. Use the Custom Coordinate engine to perfectly slice out your facecam and stack it directly over the gameplay.
-* **VR Anti-Shake Stabilization (New in v1.1.6!):** Toggle on the post-processing VR filter to automatically smooth out jarring head movements and frantic gameplay using FFmpeg motion vector analysis. *(Note: This filter relies on heavy CPU decoding and will significantly increase clip processing times. Only enable when necessary!)*
-* **Clip Gallery & AI Reasoning (New in v1.1.6!):** Review your generated clips directly inside the app, complete with a 1-10 Virality Score and a written explanation from the AI detailing exactly why it extracted that specific moment.
-* **Batch Processing:** Select multiple local `.mp4` or `.mkv` OBS recordings at once and let the app crunch through the entire queue back-to-back.
-* **Dual AI Engines:** Choose your brain. Use OpenAI (`gpt-4o`, `gpt-4o-mini`) or unlock massive context windows by feeding your entire unchunked VOD directly into Google Gemini (`gemini-2.5-flash`, `gemini-2.5-pro`).
-* **100% Free Local Transcription:** Uses OpenAI's open-source `Whisper` model running entirely on your local Nvidia GPU (CUDA) to transcribe massive files in minutes without paying transcription API fees.
-* **The Auto-Scheduler:** Set it and forget it. The app silently runs in your system tray, checking YouTube or Twitch for new uploads, bypassing subscriber-only gates using your local browser cookies, and cutting clips in the background while you sleep.
-
----
-
-## 🧠 Why Gemini over ChatGPT? (The Chunking Problem)
-
-When feeding a raw transcript to an AI, context is everything. 
-
-A standard 4-hour livestream generates a massive wall of text. Models like **ChatGPT (GPT-4o)** have a relatively limited context window (typically 128k tokens). To process an entire VOD, AI agents historically have to cut the transcript up into "chunks," sending it to OpenAI piece by piece. 
-
-**The Problem with Chunking:**
-If you make a hilarious joke at Hour 1, and the punchline happens at Hour 3, ChatGPT won't understand the punchline because the setup was in a previous chunk. It loses the holistic context of the stream. Furthermore, "clips" generated near the exact boundaries of these chunks often suffer from hallucinated start or end times.
-
-**The Gemini Advantage:**
-**Google Gemini (1.5 Pro/Flash & 2.0)** boasts a colossal **1 to 2 Million token context window**. This means jBahr's Clip Generator can feed the AI the *entire* 4+ hour VOD transcript—along with the massive Audio Loudness datasets—in a single, unified prompt block. 
-*   **Zero Chunking Required.**
-*   The AI understands running jokes from the beginning to the end of the stream.
-*   Perfectly seamless timeline correlation without boundary hallucination. 
-
-*(OpenAI is natively supported via the settings menu for users who prefer it or have smaller VODs, but Gemini is heavily recommended for massive broadcast analysis).*
+* **Huge Context AI Analysis (No Chunking!):** Supports modern LLMs with massive context windows (up to 2 Million tokens!). The AI analyzes your *entire* 4+ hour VOD in a single prompt, meaning it understands running jokes from the beginning to the end of the stream without hallucinating.
+* **Aggnostic AI Engine (New!):** Choose your brain! Natively connects to:
+  * **Anthropic** (`claude-sonnet-4-6`, `claude-haiku`)
+  * **xAI** (`grok-2-latest`)
+  * **Google Gemini** (`gemini-2.5-pro`)
+  * **OpenAI** (`gpt-4o`)
+  * **DeepSeek & Llama** (via Custom Base URLs / OpenRouter!)
+* **Clip Gallery, Thumbnails & AI Reasoning:** Review your generated clips directly inside the app! The gallery now automatically generates `.jpg` thumbnails and displays a 1-10 Virality Score with a written explanation from the AI detailing exactly why it extracted that specific moment.
+* **Vertical Auto-Cropper & VR Stabilization:** Converts horizontal gameplay into perfect 9:16 Shorts/TikToks. Toggle on the post-processing VR filter to automatically smooth out jarring head movements.
+* **Color-Coded Live Console & Cancel Operations:** Watch the AI's internal monologue and FFmpeg cut commands color-coded in real-time. Made a mistake? Seamlessly abort long-running transcriptions and generations with the new "Cancel" process control.
+* **Multi-Track Audio Downmixing:** Automatically downmixes multi-track OBS setups (e.g., Game on Track 1, Mic on Track 2) into a single unified stereo track.
+* **GPU Hardware Encoding (NVENC/AMF):** Leverages your Nvidia or Radeon GPU to execute FFmpeg clipping filters, decimating the time it takes to render your final files. 
+* **100% Free Local Transcription:** Uses OpenAI's open-source `Whisper` model running entirely on your local Nvidia GPU (CUDA) to transcribe massive files in minutes without paying API fees.
+* **The Auto-Scheduler:** Set it and forget it! The app silently runs in your system tray, checking YouTube or Twitch for new uploads, bypassing subscriber-only gates using your local browser cookies, and cutting clips in the background while you sleep.
 
 ---
 
@@ -53,8 +39,9 @@ If you are running the compiled Windows executable, the core AI libraries are pr
 
 ### API Keys
 To power the "Editor" brain of the app, you will need an API key from at least one of these providers:
-* **Google AI Studio (Recommended):** Get a Free Gemini API Key from the Google AI Studio dashboard. Highly recommended for streams over 1 hour due to its massive context window and cost-efficiency.
-* **OpenAI:** Get an API Key from the OpenAI Developer Platform (Requires a loaded API balance).
+* **Anthropic:** The new Claude models are incredible at identifying viral context and humor.
+* **Google AI Studio (Recommended for Cost):** Get a Free Gemini API Key. Incredible for huge 4 hour streams.
+* **OpenRouter / OpenAI / xAI:** Natively drop your keys in the Settings tab to gain access to GPT-4o, Grok-2, DeepSeek, and Llama 3.1!
 
 ---
 
@@ -63,7 +50,7 @@ To power the "Editor" brain of the app, you will need an API key from at least o
 ### 1. Configuration (The First Run)
 1. Open the app and navigate to the **Settings** tab.
 2. Enter your **YouTube Channel ID** and/or **Twitch Username**.
-3. Paste your **Google** or **OpenAI** API key and click "Test Key" to verify it.
+3. Paste an API key into the Auth card (Anthropic, Grok, Gemini, or OpenAI) and click **"Test Key"** to verify it.
 4. Set your **Raw VODs** and **Generated Clips** folders.
 5. Configure your **Vertical Export Settings** to match your OBS layout.
 6. Click **Save Settings**.
@@ -76,8 +63,9 @@ Got a specific VOD or local recording you want to cut right now?
 
 ### 3. Reviewing Clips
 1. Navigate to the **🖼️ Clip Gallery** tab.
-2. Select any newly generated clip to view its AI Virality Score and read the AI's reasoning for why the clip is engaging.
-3. Click **▶️ Play Clip** to open the video in your native media player. 
+2. View your newly generated clips alongside their visual thumbnails!
+3. Select any clip to view its AI Virality Score and read the AI's reasoning for why the clip is engaging.
+4. Click **▶️ Play Clip** to open the video in your native media player. 
 
 ### 4. The Auto-Scheduler
 Want to wake up to fresh clips?
@@ -85,6 +73,13 @@ Want to wake up to fresh clips?
 2. Select your platform, lookback rules, and checking interval (e.g., "Every 4 Hours").
 3. Toggle the **Enable Watcher** switch.
 4. You can safely hit the "X" on the window. The app will minimize to your Windows System Tray and quietly monitor your channel in the background!
+
+---
+
+## 💬 Community
+
+Want to talk VR content creation or share feature requests? 
+**[Join the jBahrVR Discord Server](https://discord.gg/uUF8J9Zqwz)**
 
 ---
 
