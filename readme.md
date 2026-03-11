@@ -10,7 +10,7 @@ Tired of scrubbing through 4-hour VODs looking for a 20-second highlight? **jBah
 * **Multi-Track Audio Downmixing:** Perfect for OBS users. Automatically downmixes multi-track setups (e.g., Game on Track 1, Mic on Track 2) into a single unified stereo track to guarantee your microphone is never lost on TikTok.
 * **GPU Hardware Encoding (NVENC/AMF):** Automatically leverages your Nvidia or Radeon GPU to execute the FFmpeg clipping filters, decimating the time it takes to render your final files. 
 * **Vertical Auto-Cropper (New in v1.1.6!):** Automatically converts horizontal esports gameplay into perfect 9:16 Shorts/TikToks. Use the Custom Coordinate engine to perfectly slice out your facecam and stack it directly over the gameplay.
-* **VR Anti-Shake Stabilization (New in v1.1.6!):** Toggle on the post-processing VR filter to automatically smooth out jarring head movements and frantic gameplay using FFmpeg motion vector analysis.
+* **VR Anti-Shake Stabilization (New in v1.1.6!):** Toggle on the post-processing VR filter to automatically smooth out jarring head movements and frantic gameplay using FFmpeg motion vector analysis. *(Note: This filter relies on heavy CPU decoding and will significantly increase clip processing times. Only enable when necessary!)*
 * **Clip Gallery & AI Reasoning (New in v1.1.6!):** Review your generated clips directly inside the app, complete with a 1-10 Virality Score and a written explanation from the AI detailing exactly why it extracted that specific moment.
 * **Batch Processing:** Select multiple local `.mp4` or `.mkv` OBS recordings at once and let the app crunch through the entire queue back-to-back.
 * **Dual AI Engines:** Choose your brain. Use OpenAI (`gpt-4o`, `gpt-4o-mini`) or unlock massive context windows by feeding your entire unchunked VOD directly into Google Gemini (`gemini-2.5-flash`, `gemini-2.5-pro`).
@@ -29,7 +29,7 @@ A standard 4-hour livestream generates a massive wall of text. Models like **Cha
 If you make a hilarious joke at Hour 1, and the punchline happens at Hour 3, ChatGPT won't understand the punchline because the setup was in a previous chunk. It loses the holistic context of the stream. Furthermore, "clips" generated near the exact boundaries of these chunks often suffer from hallucinated start or end times.
 
 **The Gemini Advantage:**
-**Google Gemini (1.5 Pro/Flash & 2.0)** boasts a colossal **1 to 2 Million token context window**. This means jBahr's Clip Generator can feed the AI the *entire* 8-hour VOD transcript—along with the massive Audio Loudness datasets—in a single, unified prompt block. 
+**Google Gemini (1.5 Pro/Flash & 2.0)** boasts a colossal **1 to 2 Million token context window**. This means jBahr's Clip Generator can feed the AI the *entire* 4+ hour VOD transcript—along with the massive Audio Loudness datasets—in a single, unified prompt block. 
 *   **Zero Chunking Required.**
 *   The AI understands running jokes from the beginning to the end of the stream.
 *   Perfectly seamless timeline correlation without boundary hallucination. 

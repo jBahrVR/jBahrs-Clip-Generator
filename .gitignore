@@ -2,10 +2,12 @@
 __pycache__/
 *.py[cod]
 *.pyc
+test_anthropic.py
 
 # Build folders
 build/
 dist/
+Output/
 *.spec
 
 # Personal / Local Data
@@ -14,6 +16,9 @@ cookies.txt
 *.mp4
 *.mp3
 *.txt
+*.ini   
+*.iss
+*.zip
 
 # External Executables
 *.exe
@@ -23,3 +28,4 @@ config.json
 
 # Logs
 app_crash_log.txt
+

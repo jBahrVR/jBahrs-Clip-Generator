@@ -78,13 +78,16 @@ class ClipGenApp(ctk.CTk):
         self.open_readme_btn = ctk.CTkButton(self.sidebar_frame, text="📖 View Readme", fg_color="#2b2b2b", hover_color="#3b3b3b", command=self.open_readme)
         self.open_readme_btn.grid(row=11, column=0, padx=20, pady=(5, 20), sticky="ew")
 
+        self.discord_btn = ctk.CTkButton(self.sidebar_frame, text="💬 Join Discord", fg_color="#5865F2", hover_color="#4752C4", command=lambda: webbrowser.open("https://discord.gg/uUF8J9Zqwz"))
+        self.discord_btn.grid(row=12, column=0, padx=20, pady=(5, 5), sticky="ew")
+
         self.version_label = ctk.CTkLabel(self.sidebar_frame, text="v1.1.6 Creator Edition", font=ctk.CTkFont(size=10), text_color="gray")
         self.version_label.grid(row=13, column=0, padx=20, pady=10, sticky="s")
 
         # ==================== MANUAL FRAME ====================
         self.manual_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.manual_frame.grid_columnconfigure(0, weight=1)
-        self.manual_frame.grid_rowconfigure(3, weight=1)
+        self.manual_frame.grid_rowconfigure(4, weight=1)
         
         self.manual_title = ctk.CTkLabel(self.manual_frame, text="Manual Video Processor", font=ctk.CTkFont(size=28, weight="bold"))
         self.manual_title.grid(row=0, column=0, padx=30, pady=(30, 10), sticky="w")
@@ -96,23 +99,36 @@ class ClipGenApp(ctk.CTk):
         self.url_input = ctk.CTkEntry(self.input_card, placeholder_text="Paste URL or Select Local File(s)...", height=45, border_width=0)
         self.url_input.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
         
-        self.process_btn = ctk.CTkButton(self.input_card, text="Process Queue", height=45, font=ctk.CTkFont(weight="bold"), command=self.start_manual_process)
+        self.process_btn = ctk.CTkButton(self.input_card, text="Process Queue", height=45, text_color="#FFFFFF", font=ctk.CTkFont(weight="bold"), command=self.start_manual_process)
         self.process_btn.grid(row=0, column=1, padx=(0, 10), pady=20)
 
-        self.local_file_btn = ctk.CTkButton(self.input_card, text="📂 Browse Files", height=45, fg_color="#27ae60", hover_color="#1e8449", font=ctk.CTkFont(weight="bold"), command=self.browse_local_file)
-        self.local_file_btn.grid(row=0, column=2, padx=(0, 20), pady=20)
+        self.cancel_btn = ctk.CTkButton(self.input_card, text="Cancel", height=45, text_color="#FFFFFF", fg_color="#c0392b", hover_color="#922b21", font=ctk.CTkFont(weight="bold"), state="disabled", command=self.cancel_manual_process)
+        self.cancel_btn.grid(row=0, column=2, padx=(0, 10), pady=20)
+
+        self.local_file_btn = ctk.CTkButton(self.input_card, text="📂 Browse Files", height=45, text_color="#FFFFFF", fg_color="#27ae60", hover_color="#1e8449", font=ctk.CTkFont(weight="bold"), command=self.browse_local_file)
+        self.local_file_btn.grid(row=0, column=3, padx=(0, 20), pady=20)
+        
+        self.manual_status_label = ctk.CTkLabel(self.manual_frame, text="Status: Ready", font=ctk.CTkFont(size=14, weight="bold"), text_color="#a0a0a0")
+        self.manual_status_label.grid(row=2, column=0, padx=30, pady=(10, 0), sticky="w")
         
         self.manual_progress = ctk.CTkProgressBar(self.manual_frame, mode="indeterminate", height=10)
-        self.manual_progress.grid(row=2, column=0, padx=30, pady=(5, 5), sticky="ew")
+        self.manual_progress.grid(row=3, column=0, padx=30, pady=(5, 5), sticky="ew")
         self.manual_progress.set(0)
 
+        self.cancel_requested = False
+
         self.console_card = ctk.CTkFrame(self.manual_frame, corner_radius=15)
-        self.console_card.grid(row=3, column=0, padx=30, pady=(5, 10), sticky="nsew")
+        self.console_card.grid(row=4, column=0, padx=30, pady=(5, 10), sticky="nsew")
         self.console_card.grid_columnconfigure(0, weight=1)
         self.console_card.grid_rowconfigure(0, weight=1)
 
         self.console_box = ctk.CTkTextbox(self.console_card, state="disabled", fg_color="#121212", font=ctk.CTkFont(family="Consolas", size=13))
         self.console_box.grid(row=0, column=0, padx=15, pady=15, sticky="nsew")
+        
+        self.console_box.tag_config("error", foreground="#ff4d4d")
+        self.console_box.tag_config("success", foreground="#2ecc71")
+        self.console_box.tag_config("ai", foreground="#00d2ff")
+        self.console_box.tag_config("ffmpeg", foreground="#f39c12")
 
         # ==================== AUTO FRAME ====================
         self.auto_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -171,6 +187,11 @@ class ClipGenApp(ctk.CTk):
 
         self.auto_console = ctk.CTkTextbox(self.auto_console_card, state="disabled", fg_color="#121212", font=ctk.CTkFont(family="Consolas", size=13))
         self.auto_console.grid(row=1, column=0, padx=15, pady=15, sticky="nsew")
+        
+        self.auto_console.tag_config("error", foreground="#ff4d4d")
+        self.auto_console.tag_config("success", foreground="#2ecc71")
+        self.auto_console.tag_config("ai", foreground="#00d2ff")
+        self.auto_console.tag_config("ffmpeg", foreground="#f39c12")
 
         # ==================== PROMPT MANAGER FRAME ====================
         self.prompt_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -211,96 +232,141 @@ class ClipGenApp(ctk.CTk):
         self.settings_title = ctk.CTkLabel(self.settings_frame, text="Configuration", font=ctk.CTkFont(size=28, weight="bold"))
         self.settings_title.grid(row=0, column=0, padx=30, pady=(20, 10), sticky="w")
 
-        self.settings_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
-        self.settings_card.grid(row=1, column=0, padx=30, pady=(5,5), sticky="ew")
-        self.settings_card.grid_columnconfigure(1, weight=1)
+        # --- Card 1: APIs & Models ---
+        self.api_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
+        self.api_card.grid(row=1, column=0, padx=30, pady=(5, 10), sticky="ew")
+        self.api_card.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(self.settings_card, text="YouTube Channel ID:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=20, pady=(10, 5), sticky="e")
-        self.yt_id_entry = ctk.CTkEntry(self.settings_card, height=35)
-        self.yt_id_entry.grid(row=0, column=1, columnspan=2, padx=(0, 20), pady=(10, 5), sticky="ew")
+        ctk.CTkLabel(self.api_card, text="Authentication & AI Models", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
+
+        ctk.CTkLabel(self.api_card, text="YouTube Channel ID:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=5, sticky="e")
+        self.yt_id_entry = ctk.CTkEntry(self.api_card, height=35)
+        self.yt_id_entry.grid(row=1, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
         self.yt_id_entry.insert(0, self.config.get('youtube', {}).get('channel_id', ''))
 
-        ctk.CTkLabel(self.settings_card, text="Twitch Username:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=5, sticky="e")
-        self.twitch_entry = ctk.CTkEntry(self.settings_card, height=35)
-        self.twitch_entry.grid(row=1, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
+        ctk.CTkLabel(self.api_card, text="Twitch Username:", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="e")
+        self.twitch_entry = ctk.CTkEntry(self.api_card, height=35)
+        self.twitch_entry.grid(row=2, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
         self.twitch_entry.insert(0, self.config.get('twitch', {}).get('username', ''))
 
-        self.api_link_label = ctk.CTkLabel(self.settings_card, text="OpenAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
-        self.api_link_label.grid(row=2, column=0, padx=20, pady=5, sticky="e")
+        self.api_link_label = ctk.CTkLabel(self.api_card, text="OpenAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
+        self.api_link_label.grid(row=3, column=0, padx=20, pady=5, sticky="e")
         self.api_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://platform.openai.com/api-keys"))
-        self.openai_entry = ctk.CTkEntry(self.settings_card, show="•", height=35)
-        self.openai_entry.grid(row=2, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.openai_entry = ctk.CTkEntry(self.api_card, show="•", height=35)
+        self.openai_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.openai_entry.insert(0, self.config.get('openai', {}).get('api_key', ''))
-        self.test_openai_btn = ctk.CTkButton(self.settings_card, text="Test Key", width=80, command=self.test_openai_key)
-        self.test_openai_btn.grid(row=2, column=2, padx=(0, 20), pady=5, sticky="e")
+        self.test_openai_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_openai_key)
+        self.test_openai_btn.grid(row=3, column=2, padx=(0, 20), pady=5, sticky="e")
 
-        self.google_link_label = ctk.CTkLabel(self.settings_card, text="Google API Key (Get Free):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
-        self.google_link_label.grid(row=3, column=0, padx=20, pady=5, sticky="e")
+        ctk.CTkLabel(self.api_card, text="Custom Base URL (DeepSeek/OpenRouter):", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=5, sticky="e")
+        self.base_url_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="Leave blank for OpenAI")
+        self.base_url_entry.grid(row=4, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
+        self.base_url_entry.insert(0, self.config.get('openai', {}).get('base_url', ''))
+
+        self.anthropic_link_label = ctk.CTkLabel(self.api_card, text="Anthropic API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
+        self.anthropic_link_label.grid(row=5, column=0, padx=20, pady=5, sticky="e")
+        self.anthropic_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://console.anthropic.com/settings/keys"))
+        self.anthropic_entry = ctk.CTkEntry(self.api_card, show="•", height=35)
+        self.anthropic_entry.grid(row=5, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.anthropic_entry.insert(0, self.config.get('anthropic', {}).get('api_key', ''))
+        self.test_anthropic_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_anthropic_key)
+        self.test_anthropic_btn.grid(row=5, column=2, padx=(0, 20), pady=5, sticky="e")
+
+        self.grok_link_label = ctk.CTkLabel(self.api_card, text="Grok/xAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
+        self.grok_link_label.grid(row=6, column=0, padx=20, pady=5, sticky="e")
+        self.grok_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://console.x.ai/"))
+        self.grok_entry = ctk.CTkEntry(self.api_card, show="•", height=35)
+        self.grok_entry.grid(row=6, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.grok_entry.insert(0, self.config.get('xai', {}).get('api_key', ''))
+        self.test_grok_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_grok_key)
+        self.test_grok_btn.grid(row=6, column=2, padx=(0, 20), pady=5, sticky="e")
+
+        self.google_link_label = ctk.CTkLabel(self.api_card, text="Google API Key (Get Free):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
+        self.google_link_label.grid(row=7, column=0, padx=20, pady=5, sticky="e")
         self.google_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://aistudio.google.com/app/apikey"))
-        self.google_entry = ctk.CTkEntry(self.settings_card, show="•", height=35)
-        self.google_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.google_entry = ctk.CTkEntry(self.api_card, show="•", height=35)
+        self.google_entry.grid(row=7, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.google_entry.insert(0, self.config.get('google', {}).get('api_key', ''))
-        self.test_google_btn = ctk.CTkButton(self.settings_card, text="Test Key", width=80, command=self.test_google_key)
-        self.test_google_btn.grid(row=3, column=2, padx=(0, 20), pady=5, sticky="e")
+        self.test_google_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_google_key)
+        self.test_google_btn.grid(row=7, column=2, padx=(0, 20), pady=5, sticky="e")
 
-        ctk.CTkLabel(self.settings_card, text="AI Chat Model:", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=5, sticky="e")
-        self.model_menu = ctk.CTkOptionMenu(self.settings_card, values=["gpt-4o", "gpt-4o-mini", "gemini-2.5-flash", "gemini-2.5-pro"], height=35)
-        self.model_menu.grid(row=4, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
+        ctk.CTkLabel(self.api_card, text="AI Chat Model:", font=ctk.CTkFont(weight="bold")).grid(row=8, column=0, padx=20, pady=5, sticky="e")
+        self.model_menu = ctk.CTkOptionMenu(self.api_card, values=[
+            "gpt-4o", "gpt-4o-mini", 
+            "gemini-2.5-flash", "gemini-2.5-pro",
+            "claude-sonnet-4-6", "claude-haiku-4-5-20251001",
+            "grok-2-latest", "grok-2-mini",
+            "deepseek-chat", "deepseek-reasoner",
+            "openrouter/google/gemini-2.5-pro", "openrouter/meta-llama/llama-3.1-70b-instruct"
+        ], height=35)
+        self.model_menu.grid(row=8, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
         self.model_menu.set(self.config.get('openai', {}).get('chat_model', 'gpt-4o'))
 
-        ctk.CTkLabel(self.settings_card, text="Whisper Transcribe Model:", font=ctk.CTkFont(weight="bold")).grid(row=5, column=0, padx=20, pady=5, sticky="e")
-        self.whisper_menu = ctk.CTkOptionMenu(self.settings_card, values=["tiny", "base", "small", "medium", "large"], height=35)
-        self.whisper_menu.grid(row=5, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
+        ctk.CTkLabel(self.api_card, text="Whisper Transcribe Model:", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=20, pady=(5, 15), sticky="e")
+        self.whisper_menu = ctk.CTkOptionMenu(self.api_card, values=["tiny", "base", "small", "medium", "large"], height=35)
+        self.whisper_menu.grid(row=9, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="ew")
+        self.whisper_menu.set(self.config.get('openai', {}).get('whisper_model', 'base'))
         self.whisper_menu.set(self.config.get('openai', {}).get('whisper_model', 'base'))
 
-        ctk.CTkLabel(self.settings_card, text="VOD Download Size:", font=ctk.CTkFont(weight="bold")).grid(row=6, column=0, padx=20, pady=5, sticky="e")
-        self.quality_menu = ctk.CTkOptionMenu(self.settings_card, values=["Best", "1080p", "720p"], height=35)
-        self.quality_menu.grid(row=6, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
+        # --- Card 2: Paths & Downloads ---
+        self.paths_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
+        self.paths_card.grid(row=2, column=0, padx=30, pady=(5, 10), sticky="ew")
+        self.paths_card.grid_columnconfigure(1, weight=1)
+        
+        ctk.CTkLabel(self.paths_card, text="Paths & Downloads", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
+
+        ctk.CTkLabel(self.paths_card, text="VOD Download Size:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=5, sticky="e")
+        self.quality_menu = ctk.CTkOptionMenu(self.paths_card, values=["Best", "1080p", "720p"], height=35)
+        self.quality_menu.grid(row=1, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
         self.quality_menu.set(self.config.get('settings', {}).get('download_quality', 'Best'))
 
-        ctk.CTkLabel(self.settings_card, text="Raw VODs Folder:", font=ctk.CTkFont(weight="bold")).grid(row=7, column=0, padx=20, pady=5, sticky="e")
-        self.vod_dir_entry = ctk.CTkEntry(self.settings_card, height=35)
-        self.vod_dir_entry.grid(row=7, column=1, padx=(0, 10), pady=5, sticky="ew")
+        ctk.CTkLabel(self.paths_card, text="Raw VODs Folder:", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="e")
+        self.vod_dir_entry = ctk.CTkEntry(self.paths_card, height=35)
+        self.vod_dir_entry.grid(row=2, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.vod_dir_entry.insert(0, self.config.get('settings', {}).get('download_dir', ''))
-        self.vod_browse_btn = ctk.CTkButton(self.settings_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.vod_dir_entry))
-        self.vod_browse_btn.grid(row=7, column=2, padx=(0, 20), pady=5, sticky="e")
+        self.vod_browse_btn = ctk.CTkButton(self.paths_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.vod_dir_entry))
+        self.vod_browse_btn.grid(row=2, column=2, padx=(0, 20), pady=5, sticky="e")
 
-        ctk.CTkLabel(self.settings_card, text="Generated Clips Folder:", font=ctk.CTkFont(weight="bold")).grid(row=8, column=0, padx=20, pady=(5, 15), sticky="e")
-        self.clip_dir_entry = ctk.CTkEntry(self.settings_card, height=35)
-        self.clip_dir_entry.grid(row=8, column=1, padx=(0, 10), pady=(5, 15), sticky="ew")
+        ctk.CTkLabel(self.paths_card, text="Generated Clips Folder:", font=ctk.CTkFont(weight="bold")).grid(row=3, column=0, padx=20, pady=5, sticky="e")
+        self.clip_dir_entry = ctk.CTkEntry(self.paths_card, height=35)
+        self.clip_dir_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.clip_dir_entry.insert(0, self.config.get('settings', {}).get('clips_dir', ''))
-        self.clip_browse_btn = ctk.CTkButton(self.settings_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.clip_dir_entry))
-        self.clip_browse_btn.grid(row=8, column=2, padx=(0, 20), pady=(5, 15), sticky="e")
+        self.clip_browse_btn = ctk.CTkButton(self.paths_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.clip_dir_entry))
+        self.clip_browse_btn.grid(row=3, column=2, padx=(0, 20), pady=5, sticky="e")
 
-        ctk.CTkLabel(self.settings_card, text="Auth Browser (Cookies):", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=20, pady=(5, 15), sticky="e")
-        self.browser_menu = ctk.CTkOptionMenu(self.settings_card, values=["None", "chrome", "edge", "firefox", "opera", "brave", "vivaldi"], height=35)
-        self.browser_menu.grid(row=9, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
+        ctk.CTkLabel(self.paths_card, text="Auth Browser (Cookies):", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=(5, 15), sticky="e")
+        self.browser_menu = ctk.CTkOptionMenu(self.paths_card, values=["None", "chrome", "edge", "firefox", "opera", "brave", "vivaldi"], height=35)
+        self.browser_menu.grid(row=4, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
         self.browser_menu.set(self.config.get('settings', {}).get('auth_browser', 'None'))
 
-        # --- ADVANCED SETTINGS ---
-        self.hardware_switch = ctk.CTkSwitch(self.settings_card, text="GPU Hardware Encoding (NVENC/AMF)", font=ctk.CTkFont(weight="bold"))
-        self.hardware_switch.grid(row=10, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+        # --- Card 3: Video Processing Rules ---
+        self.proc_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
+        self.proc_card.grid(row=3, column=0, padx=30, pady=(5, 10), sticky="ew")
+        self.proc_card.grid_columnconfigure(1, weight=1)
+        
+        ctk.CTkLabel(self.proc_card, text="Video Processing Rules", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
 
-        self.downmix_switch = ctk.CTkSwitch(self.settings_card, text="Downmix Multi-Track Audio (OBS)", font=ctk.CTkFont(weight="bold"))
-        self.downmix_switch.grid(row=11, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+        self.hardware_switch = ctk.CTkSwitch(self.proc_card, text="GPU Hardware Encoding (NVENC/AMF)", font=ctk.CTkFont(weight="bold"))
+        self.hardware_switch.grid(row=1, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
-        # --- VR STABILIZATION ---
-        self.stabilize_switch = ctk.CTkSwitch(self.settings_card, text="Apply VR Anti-Shake Filter", font=ctk.CTkFont(weight="bold"))
-        self.stabilize_switch.grid(row=12, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+        self.downmix_switch = ctk.CTkSwitch(self.proc_card, text="Downmix Multi-Track Audio (OBS)", font=ctk.CTkFont(weight="bold"))
+        self.downmix_switch.grid(row=2, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
-        # --- VERTICAL EXPORT SETTINGS ---
-        self.vertical_switch = ctk.CTkSwitch(self.settings_card, text="Generate Vertical Shorts (9:16)", font=ctk.CTkFont(weight="bold"))
-        self.vertical_switch.grid(row=13, column=0, padx=20, pady=(15, 5), sticky="w")
+        self.stabilize_switch = ctk.CTkSwitch(self.proc_card, text="Apply VR Anti-Shake Filter", font=ctk.CTkFont(weight="bold"))
+        self.stabilize_switch.grid(row=3, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+
+        self.vertical_switch = ctk.CTkSwitch(self.proc_card, text="Generate Vertical Shorts (9:16)", font=ctk.CTkFont(weight="bold"))
+        self.vertical_switch.grid(row=4, column=0, padx=20, pady=(15, 5), sticky="w")
         
         self.vertical_mode_menu = ctk.CTkOptionMenu(
-            self.settings_card, 
+            self.proc_card, 
             values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Facecam Bottom-Left", "Facecam Bottom-Right", "Custom Coordinates"],
             height=35
         )
-        self.vertical_mode_menu.grid(row=13, column=1, columnspan=2, padx=(0, 20), pady=(15, 5), sticky="w")
+        self.vertical_mode_menu.grid(row=4, column=1, columnspan=2, padx=(0, 20), pady=(15, 5), sticky="w")
 
-        self.coord_frame = ctk.CTkFrame(self.settings_card, fg_color="transparent")
-        self.coord_frame.grid(row=14, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
+        self.coord_frame = ctk.CTkFrame(self.proc_card, fg_color="transparent")
+        self.coord_frame.grid(row=5, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
         
         ctk.CTkLabel(self.coord_frame, text="X:").pack(side="left", padx=(0, 5))
         self.crop_x_entry = ctk.CTkEntry(self.coord_frame, width=50)
@@ -339,7 +405,7 @@ class ClipGenApp(ctk.CTk):
         self.crop_h_entry.insert(0, settings_cfg.get('crop_h', '225'))
 
         self.help_card = ctk.CTkFrame(self.settings_frame, corner_radius=15, fg_color="#1a1a1a")
-        self.help_card.grid(row=13, column=0, padx=30, pady=(20, 0), sticky="ew")
+        self.help_card.grid(row=4, column=0, padx=30, pady=(20, 0), sticky="ew")
         
         help_text = (
             "🛠️ v1.1.6 Quick Setup & Troubleshooting:\n\n"
@@ -351,7 +417,7 @@ class ClipGenApp(ctk.CTk):
         self.help_label.pack(anchor="w")
 
         self.save_btn = ctk.CTkButton(self.settings_frame, text="Save Settings", height=45, font=ctk.CTkFont(weight="bold"), command=self.save_settings)
-        self.save_btn.grid(row=14, column=0, padx=30, pady=20, sticky="e")
+        self.save_btn.grid(row=5, column=0, padx=30, pady=20, sticky="e")
 
         # ==================== GALLERY FRAME ====================
         self.gallery_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -391,16 +457,48 @@ class ClipGenApp(ctk.CTk):
     # --- API Testers ---
     def test_openai_key(self):
         key = self.openai_entry.get().strip()
+        base_url = self.base_url_entry.get().strip()
         self.test_openai_btn.configure(text="Testing...", fg_color="#e67e22")
         def run_test():
             try:
                 from openai import OpenAI # type: ignore
-                client = OpenAI(api_key=key)
+                client_args = {"api_key": key if key else "blank_valid_key"}
+                if base_url:
+                    client_args["base_url"] = base_url
+                client = OpenAI(**client_args)
                 client.models.list() 
                 self.after(0, lambda: self.test_openai_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
             except:
                 self.after(0, lambda: self.test_openai_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
             self.after(3000, lambda: self.test_openai_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
+        threading.Thread(target=run_test, daemon=True).start()
+
+    def test_anthropic_key(self):
+        key = self.anthropic_entry.get().strip()
+        self.test_anthropic_btn.configure(text="Testing...", fg_color="#e67e22")
+        def run_test():
+            try:
+                import anthropic # type: ignore
+                client = anthropic.Anthropic(api_key=key)
+                client.models.list() 
+                self.after(0, lambda: self.test_anthropic_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
+            except:
+                self.after(0, lambda: self.test_anthropic_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
+            self.after(3000, lambda: self.test_anthropic_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
+        threading.Thread(target=run_test, daemon=True).start()
+
+    def test_grok_key(self):
+        key = self.grok_entry.get().strip()
+        self.test_grok_btn.configure(text="Testing...", fg_color="#e67e22")
+        def run_test():
+            try:
+                from openai import OpenAI # type: ignore
+                client = OpenAI(api_key=key, base_url="https://api.x.ai/v1")
+                client.models.list() 
+                self.after(0, lambda: self.test_grok_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
+            except:
+                self.after(0, lambda: self.test_grok_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
+            self.after(3000, lambda: self.test_grok_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
         threading.Thread(target=run_test, daemon=True).start()
 
     def test_google_key(self):
@@ -419,10 +517,22 @@ class ClipGenApp(ctk.CTk):
 
     # --- Helpers ---
     def log_to_console(self, text):
+        tag = None
+        if "❌" in text or "error" in text.lower(): tag = "error"
+        elif "✅" in text or "✨" in text or "🏁" in text: tag = "success"
+        elif "🧠" in text or "🌌" in text or "🤖" in text or "🎯" in text: tag = "ai"
+        elif "✂️" in text or "🎞️" in text or "📸" in text or "📱" in text: tag = "ffmpeg"
+        
+        status_clean = text.split("]")[-1].strip() if "]" in text else text.strip()
+
         def update_text():
+            self.manual_status_label.configure(text=f"Status: {status_clean}")
             for box in [self.console_box, self.auto_console]:
                 box.configure(state="normal")
-                box.insert("end", text + "\n")
+                if tag:
+                    box.insert("end", text + "\n", tag)
+                else:
+                    box.insert("end", text + "\n")
                 box.configure(state="disabled")
                 box.see("end")
         self.after(0, update_text)
@@ -559,6 +669,15 @@ class ClipGenApp(ctk.CTk):
         self.config['youtube']['channel_id'] = self.yt_id_entry.get()
         self.config['twitch']['username'] = self.twitch_entry.get()
         self.config['openai']['api_key'] = self.openai_entry.get()
+        self.config['openai']['base_url'] = self.base_url_entry.get()
+        
+        if 'anthropic' not in self.config:
+            self.config['anthropic'] = {}
+        self.config['anthropic']['api_key'] = self.anthropic_entry.get()
+        
+        if 'xai' not in self.config:
+            self.config['xai'] = {}
+        self.config['xai']['api_key'] = self.grok_entry.get()
         
         if 'google' not in self.config:
             self.config['google'] = {}
@@ -595,7 +714,17 @@ class ClipGenApp(ctk.CTk):
 
         mp4_files = [f for f in os.listdir(clips_dir) if f.endswith(".mp4")]
         for file in mp4_files:
-            btn = ctk.CTkButton(self.clip_listbox, text=file, fg_color="#2b2b2b", hover_color="#3b3b3b", anchor="w", 
+            thumb_name = file.replace("_vertical.mp4", ".mp4").replace(".mp4", ".jpg")
+            thumb_path = os.path.join(clips_dir, thumb_name)
+            clip_img = None
+            if os.path.exists(thumb_path):
+                try:
+                    pil_img = Image.open(thumb_path)
+                    clip_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(64, 36))
+                except:
+                    pass
+
+            btn = ctk.CTkButton(self.clip_listbox, text=file, image=clip_img, compound="left", fg_color="#2b2b2b", hover_color="#3b3b3b", anchor="w", 
                                 command=lambda f=file: self.load_clip_details(f, clips_dir))
             btn.pack(fill="x", pady=2, padx=5)
 
@@ -638,11 +767,18 @@ class ClipGenApp(ctk.CTk):
             self.url_input.delete(0, "end")
             self.url_input.insert(0, ";".join(file_paths))
 
+    def cancel_manual_process(self):
+        self.cancel_requested = True
+        self.cancel_btn.configure(state="disabled", text="Cancelling...")
+        self.log_to_console("🛑 Cancellation requested. Aborting as soon as possible...")
+
     def start_manual_process(self):
         input_val = self.url_input.get().strip()
         if input_val:
+            self.cancel_requested = False
             self.process_btn.configure(state="disabled", text="Processing...")
             self.local_file_btn.configure(state="disabled")
+            self.cancel_btn.configure(state="normal", text="Cancel")
             self.manual_progress.start()
             self.console_box.configure(state="normal")
             self.console_box.delete("1.0", "end")
@@ -656,12 +792,14 @@ class ClipGenApp(ctk.CTk):
             queue = [item.strip() for item in input_val.split(";") if item.strip()]
             
             for index, item in enumerate(queue):
+                if self.cancel_requested: break
+                
                 if len(queue) > 1:
                     self.log_to_console(f"\n📦 BATCH PROCESS: Starting item {index + 1} of {len(queue)}...")
 
                 if os.path.exists(item):
                     self.log_to_console(f"📁 Local file detected: {item}")
-                    editor.process_video(item, prompt_profile=profile, logger=self.log_to_console)
+                    editor.process_video(item, prompt_profile=profile, logger=self.log_to_console, is_cancelled=lambda: self.cancel_requested)
                     
                 elif item.startswith("http") or "twitch.tv" in item or "youtu" in item:
                     self.log_to_console(f"🌐 URL detected: {item}")
@@ -669,21 +807,29 @@ class ClipGenApp(ctk.CTk):
                     if not v_id:
                         self.log_to_console("❌ Video ID error. Skipping.")
                         continue
-                    f_path = watcher.download_with_subprocess(item, v_id, logger_callback=self.log_to_console, force_manual=True)
+                    f_path = watcher.download_with_subprocess(item, v_id, logger_callback=self.log_to_console, force_manual=True, is_cancelled=lambda: self.cancel_requested)
+                    if self.cancel_requested: break
                     if f_path:
-                        editor.process_video(f_path, prompt_profile=profile, logger=self.log_to_console)
+                        editor.process_video(f_path, prompt_profile=profile, logger=self.log_to_console, is_cancelled=lambda: self.cancel_requested)
                 else:
                     self.log_to_console(f"❌ Invalid input: {item}")
 
-            self.log_to_console("🏁 ALL TASKS COMPLETE!")
+            if self.cancel_requested:
+                self.log_to_console("🛑 Process aborted by user.")
+            else:
+                self.log_to_console("🏁 ALL TASKS COMPLETE!")
+                self.after(0, lambda: self.process_btn.configure(text="✅ Complete!", fg_color="#27ae60"))
+                self.after(3000, lambda: self.process_btn.configure(text="Process Queue", fg_color=["#3a7ebf", "#1f538d"]))
                 
         except Exception as e:
             self.log_to_console(f"❌ Error: {e}")
         finally:
             self.after(0, lambda: [
-                self.process_btn.configure(state="normal", text="Process Queue"), 
+                self.process_btn.configure(state="normal"), 
                 self.local_file_btn.configure(state="normal"),
+                self.cancel_btn.configure(state="disabled", text="Cancel"),
                 self.manual_progress.stop(),
+                self.manual_status_label.configure(text="Status: Ready"),
                 self.populate_gallery()
             ])
 

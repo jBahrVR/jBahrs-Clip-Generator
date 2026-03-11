@@ -23,7 +23,14 @@ def get_default_config():
         "openai": {
             "api_key": "", 
             "chat_model": "gpt-4o", 
-            "whisper_model": "base"
+            "whisper_model": "base",
+            "base_url": ""
+        },
+        "anthropic": {
+            "api_key": ""
+        },
+        "xai": {
+            "api_key": ""
         },
         "google": {
             "api_key": ""
@@ -102,6 +109,12 @@ def load_config():
             settings = cfg.setdefault("settings", {})
             settings.setdefault("hardware_encoding", False)
             settings.setdefault("audio_downmix", True)
+            
+            openai_cfg = cfg.setdefault("openai", {})
+            openai_cfg.setdefault("base_url", "")
+            
+            cfg.setdefault("anthropic", {"api_key": ""})
+            cfg.setdefault("xai", {"api_key": ""})
             
             # MIGRATION UPDATE: Force update the default Omni-Genre prompt if they have the old version
             prompts = cfg.setdefault("prompts", {})

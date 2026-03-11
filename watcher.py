@@ -5,7 +5,7 @@ import editor # type: ignore
 
 YTDLP_PATH = "yt-dlp.exe" if os.name == 'nt' else "yt-dlp"
 
-def download_with_subprocess(url, video_id, logger_callback=None, force_manual=False):
+def download_with_subprocess(url, video_id, logger_callback=None, force_manual=False, is_cancelled=None):
     config = config_manager.load_config()
     download_dir = config.get("settings", {}).get("download_dir", "")
     
@@ -196,12 +196,12 @@ def main(logger_callback=None):
                 # Capture the downloaded file path
                 downloaded_path = download_with_subprocess(video_url, latest_id, logger_callback, force_manual=False)
                 
-                # 👈 THE FIX: Hand off the downloaded file to the AI Editor!
                 if downloaded_path:
                     prompt_profile = config.get("auto_scheduler", {}).get("auto_prompt_profile", "Default VR")
                     if logger_callback: 
                         logger_callback(f"🧠 Passing VOD to AI Editor using profile: [{prompt_profile}]")
-                    editor.process_video(downloaded_path, prompt_profile=prompt_profile, logger=logger_callback)
+                    # We are passing down a mock lambda just for completeness, as watcher doesn't have a UI cancel button yet
+                    editor.process_video(downloaded_path, prompt_profile=prompt_profile, logger=logger_callback, is_cancelled=lambda: False)
                     
                     if logger_callback: 
                         logger_callback("🏁 Auto-Scheduler finished processing the new video!")
