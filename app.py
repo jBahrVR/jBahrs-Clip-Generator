@@ -1,0 +1,749 @@
+import sys
+import os
+
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+
+import customtkinter as ctk # type: ignore
+from customtkinter import filedialog # type: ignore
+import config_manager # type: ignore
+import threading
+import subprocess
+import time
+import webbrowser
+import watcher # type: ignore
+import editor # type: ignore
+import pystray # type: ignore
+import json
+from PIL import Image # type: ignore
+
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
+class ClipGenApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.title("jBahr's Clip Generator")
+        self.geometry("1100x900") 
+        
+        self.protocol('WM_DELETE_WINDOW', self.minimize_to_tray)
+        self.tray_icon = None
+        
+        self.config = config_manager.load_config()
+        self.is_auto_running = False
+
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+
+        # ==================== SIDEBAR ====================
+        self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color="#1e1e1e")
+        self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
+        self.sidebar_frame.grid_rowconfigure(12, weight=1) 
+
+        self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="jBahr's Clip\nGenerator", font=ctk.CTkFont(size=24, weight="bold"))
+        self.logo_label.grid(row=0, column=0, padx=20, pady=(30, 20))
+
+        self.nav_manual_btn = ctk.CTkButton(self.sidebar_frame, text="🎬 Manual Clipper", fg_color="transparent", border_width=1, command=self.show_manual_frame)
+        self.nav_manual_btn.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+
+        self.nav_auto_btn = ctk.CTkButton(self.sidebar_frame, text="⏳ Auto Scheduler", fg_color="transparent", border_width=1, command=self.show_auto_frame)
+        self.nav_auto_btn.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+
+        self.nav_prompt_btn = ctk.CTkButton(self.sidebar_frame, text="📝 Prompt Manager", fg_color="transparent", border_width=1, command=self.show_prompt_frame)
+        self.nav_prompt_btn.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
+
+        self.nav_settings_btn = ctk.CTkButton(self.sidebar_frame, text="⚙️ Settings", fg_color="transparent", border_width=1, command=self.show_settings_frame)
+        self.nav_settings_btn.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+
+        self.nav_gallery_btn = ctk.CTkButton(self.sidebar_frame, text="🖼️ Clip Gallery", fg_color="transparent", border_width=1, command=self.show_gallery_frame)
+        self.nav_gallery_btn.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
+
+        self.github_btn = ctk.CTkButton(self.sidebar_frame, text="🌐 GitHub Repo", fg_color="#24292e", hover_color="#2f363d", command=lambda: webbrowser.open("https://github.com/jBahrVR/jBahrs-Clip-Generator"))
+        self.github_btn.grid(row=6, column=0, padx=20, pady=(10, 0), sticky="ew")
+
+        self.quick_access_label = ctk.CTkLabel(self.sidebar_frame, text="Quick Access", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray")
+        self.quick_access_label.grid(row=7, column=0, padx=20, pady=(20, 0), sticky="w")
+
+        self.open_vods_btn = ctk.CTkButton(self.sidebar_frame, text="📁 Raw VODs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("download_dir"))
+        self.open_vods_btn.grid(row=8, column=0, padx=20, pady=(5, 5), sticky="ew")
+
+        self.open_clips_btn = ctk.CTkButton(self.sidebar_frame, text="✂️ Generated Clips", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("clips_dir"))
+        self.open_clips_btn.grid(row=9, column=0, padx=20, pady=(5, 5), sticky="ew")
+
+        self.open_logs_btn = ctk.CTkButton(self.sidebar_frame, text="📝 View Crash Logs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=self.open_logs)
+        self.open_logs_btn.grid(row=10, column=0, padx=20, pady=(5, 5), sticky="ew")
+
+        self.open_readme_btn = ctk.CTkButton(self.sidebar_frame, text="📖 View Readme", fg_color="#2b2b2b", hover_color="#3b3b3b", command=self.open_readme)
+        self.open_readme_btn.grid(row=11, column=0, padx=20, pady=(5, 20), sticky="ew")
+
+        self.version_label = ctk.CTkLabel(self.sidebar_frame, text="v1.1.6 Creator Edition", font=ctk.CTkFont(size=10), text_color="gray")
+        self.version_label.grid(row=13, column=0, padx=20, pady=10, sticky="s")
+
+        # ==================== MANUAL FRAME ====================
+        self.manual_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.manual_frame.grid_columnconfigure(0, weight=1)
+        self.manual_frame.grid_rowconfigure(3, weight=1)
+        
+        self.manual_title = ctk.CTkLabel(self.manual_frame, text="Manual Video Processor", font=ctk.CTkFont(size=28, weight="bold"))
+        self.manual_title.grid(row=0, column=0, padx=30, pady=(30, 10), sticky="w")
+        
+        self.input_card = ctk.CTkFrame(self.manual_frame, corner_radius=15)
+        self.input_card.grid(row=1, column=0, padx=30, pady=10, sticky="ew")
+        self.input_card.grid_columnconfigure(0, weight=1)
+
+        self.url_input = ctk.CTkEntry(self.input_card, placeholder_text="Paste URL or Select Local File(s)...", height=45, border_width=0)
+        self.url_input.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
+        
+        self.process_btn = ctk.CTkButton(self.input_card, text="Process Queue", height=45, font=ctk.CTkFont(weight="bold"), command=self.start_manual_process)
+        self.process_btn.grid(row=0, column=1, padx=(0, 10), pady=20)
+
+        self.local_file_btn = ctk.CTkButton(self.input_card, text="📂 Browse Files", height=45, fg_color="#27ae60", hover_color="#1e8449", font=ctk.CTkFont(weight="bold"), command=self.browse_local_file)
+        self.local_file_btn.grid(row=0, column=2, padx=(0, 20), pady=20)
+        
+        self.manual_progress = ctk.CTkProgressBar(self.manual_frame, mode="indeterminate", height=10)
+        self.manual_progress.grid(row=2, column=0, padx=30, pady=(5, 5), sticky="ew")
+        self.manual_progress.set(0)
+
+        self.console_card = ctk.CTkFrame(self.manual_frame, corner_radius=15)
+        self.console_card.grid(row=3, column=0, padx=30, pady=(5, 10), sticky="nsew")
+        self.console_card.grid_columnconfigure(0, weight=1)
+        self.console_card.grid_rowconfigure(0, weight=1)
+
+        self.console_box = ctk.CTkTextbox(self.console_card, state="disabled", fg_color="#121212", font=ctk.CTkFont(family="Consolas", size=13))
+        self.console_box.grid(row=0, column=0, padx=15, pady=15, sticky="nsew")
+
+        # ==================== AUTO FRAME ====================
+        self.auto_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.auto_frame.grid_columnconfigure(0, weight=1)
+        self.auto_frame.grid_rowconfigure(3, weight=1)
+
+        self.auto_title = ctk.CTkLabel(self.auto_frame, text="Automated Background Watcher", font=ctk.CTkFont(size=28, weight="bold"))
+        self.auto_title.grid(row=0, column=0, padx=30, pady=(30, 10), sticky="w")
+
+        self.auto_controls_card = ctk.CTkFrame(self.auto_frame, corner_radius=15)
+        self.auto_controls_card.grid(row=1, column=0, padx=30, pady=10, sticky="ew")
+        
+        ctk.CTkLabel(self.auto_controls_card, text="Platform:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(20,10))
+        self.platform_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["YouTube", "Twitch"], width=110)
+        self.platform_menu.grid(row=0, column=1, padx=5, pady=(20,10))
+        self.platform_menu.set(self.config.get("auto_scheduler", {}).get("platform", "YouTube"))
+
+        ctk.CTkLabel(self.auto_controls_card, text="Type:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=2, padx=10, pady=(20,10))
+        self.type_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["Livestreams Only", "Any Upload"], width=130)
+        self.type_menu.grid(row=0, column=3, padx=5, pady=(20,10))
+        self.type_menu.set(self.config.get("auto_scheduler", {}).get("video_type", "Livestreams Only"))
+
+        ctk.CTkLabel(self.auto_controls_card, text="Orientation:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=4, padx=10, pady=(20,10))
+        self.target_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["Vertical Only", "Horizontal Only", "Any"], width=130)
+        self.target_menu.grid(row=0, column=5, padx=5, pady=(20,10))
+        self.target_menu.set(self.config.get("auto_scheduler", {}).get("target_orientation", "Horizontal Only"))
+
+        ctk.CTkLabel(self.auto_controls_card, text="Max Age:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=10, pady=(10,10))
+        self.lookback_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["1 Day", "3 Days", "7 Days", "14 Days", "30 Days", "All Time"], width=110)
+        self.lookback_menu.grid(row=1, column=1, padx=5, pady=(10,10))
+        self.lookback_menu.set(self.config.get("auto_scheduler", {}).get("lookback_days", "7 Days"))
+
+        ctk.CTkLabel(self.auto_controls_card, text="Interval:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=2, padx=10, pady=(10,10))
+        self.interval_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["Every 1 Hour", "Every 4 Hours", "Every 12 Hours", "Every 24 Hours"], width=130)
+        self.interval_menu.grid(row=1, column=3, padx=5, pady=(10,10))
+        self.interval_menu.set(self.config.get("auto_scheduler", {}).get("check_interval", "Every 4 Hours"))
+
+        ctk.CTkLabel(self.auto_controls_card, text="Auto-Prompt:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=4, padx=10, pady=(10,10))
+        self.auto_prompt_menu = ctk.CTkOptionMenu(self.auto_controls_card, width=130)
+        self.auto_prompt_menu.grid(row=1, column=5, padx=5, pady=(10,10))
+
+        self.auto_switch = ctk.CTkSwitch(self.auto_controls_card, text="Enable Watcher", font=ctk.CTkFont(weight="bold"), command=self.toggle_auto)
+        self.auto_switch.grid(row=2, column=4, columnspan=2, padx=20, pady=(10,20), sticky="e")
+
+        self.auto_progress = ctk.CTkProgressBar(self.auto_frame, mode="indeterminate", height=10)
+        self.auto_progress.grid(row=2, column=0, padx=30, pady=(5, 5), sticky="ew")
+        self.auto_progress.set(0)
+
+        self.auto_console_card = ctk.CTkFrame(self.auto_frame, corner_radius=15)
+        self.auto_console_card.grid(row=3, column=0, padx=30, pady=(5, 10), sticky="nsew")
+        self.auto_console_card.grid_columnconfigure(0, weight=1)
+        self.auto_console_card.grid_rowconfigure(1, weight=1)
+
+        self.auto_status = ctk.CTkLabel(self.auto_console_card, text="● Status: OFF", text_color="gray", font=ctk.CTkFont(weight="bold"))
+        self.auto_status.grid(row=0, column=0, padx=20, pady=(15, 0), sticky="w")
+
+        self.auto_console = ctk.CTkTextbox(self.auto_console_card, state="disabled", fg_color="#121212", font=ctk.CTkFont(family="Consolas", size=13))
+        self.auto_console.grid(row=1, column=0, padx=15, pady=15, sticky="nsew")
+
+        # ==================== PROMPT MANAGER FRAME ====================
+        self.prompt_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.prompt_frame.grid_columnconfigure(0, weight=1)
+        self.prompt_frame.grid_rowconfigure(2, weight=1)
+        
+        self.prompt_title = ctk.CTkLabel(self.prompt_frame, text="AI Prompt Editor", font=ctk.CTkFont(size=28, weight="bold"))
+        self.prompt_title.grid(row=0, column=0, padx=30, pady=(30, 10), sticky="w")
+
+        self.prompt_select_card = ctk.CTkFrame(self.prompt_frame, corner_radius=15)
+        self.prompt_select_card.grid(row=1, column=0, padx=30, pady=10, sticky="ew")
+        
+        ctk.CTkLabel(self.prompt_select_card, text="Active Manual Profile:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=20, pady=20)
+        self.profile_dropdown = ctk.CTkOptionMenu(self.prompt_select_card, command=self.on_profile_change)
+        self.profile_dropdown.pack(side="left", padx=10)
+
+        self.new_profile_btn = ctk.CTkButton(self.prompt_select_card, text="➕ New", width=60, fg_color="#27ae60", hover_color="#1e8449", command=self.create_new_profile)
+        self.new_profile_btn.pack(side="left", padx=5)
+
+        self.delete_profile_btn = ctk.CTkButton(self.prompt_select_card, text="Delete Profile", fg_color="#c0392b", hover_color="#922b21", command=self.delete_profile)
+        self.delete_profile_btn.pack(side="right", padx=20)
+
+        self.prompt_editor_card = ctk.CTkFrame(self.prompt_frame, corner_radius=15)
+        self.prompt_editor_card.grid(row=2, column=0, padx=30, pady=10, sticky="nsew")
+        self.prompt_editor_card.grid_columnconfigure(0, weight=1)
+        self.prompt_editor_card.grid_rowconfigure(0, weight=1)
+
+        self.prompt_textbox = ctk.CTkTextbox(self.prompt_editor_card, font=ctk.CTkFont(size=14), wrap="word")
+        self.prompt_textbox.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+
+        self.save_prompt_btn = ctk.CTkButton(self.prompt_editor_card, text="Save Current Prompt", height=40, font=ctk.CTkFont(weight="bold"), command=self.save_current_prompt)
+        self.save_prompt_btn.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="e")
+
+        # ==================== SETTINGS FRAME ====================
+        self.settings_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.settings_frame.grid_columnconfigure(0, weight=1)
+        
+        self.settings_title = ctk.CTkLabel(self.settings_frame, text="Configuration", font=ctk.CTkFont(size=28, weight="bold"))
+        self.settings_title.grid(row=0, column=0, padx=30, pady=(20, 10), sticky="w")
+
+        self.settings_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
+        self.settings_card.grid(row=1, column=0, padx=30, pady=(5,5), sticky="ew")
+        self.settings_card.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(self.settings_card, text="YouTube Channel ID:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=20, pady=(10, 5), sticky="e")
+        self.yt_id_entry = ctk.CTkEntry(self.settings_card, height=35)
+        self.yt_id_entry.grid(row=0, column=1, columnspan=2, padx=(0, 20), pady=(10, 5), sticky="ew")
+        self.yt_id_entry.insert(0, self.config.get('youtube', {}).get('channel_id', ''))
+
+        ctk.CTkLabel(self.settings_card, text="Twitch Username:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=5, sticky="e")
+        self.twitch_entry = ctk.CTkEntry(self.settings_card, height=35)
+        self.twitch_entry.grid(row=1, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
+        self.twitch_entry.insert(0, self.config.get('twitch', {}).get('username', ''))
+
+        self.api_link_label = ctk.CTkLabel(self.settings_card, text="OpenAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
+        self.api_link_label.grid(row=2, column=0, padx=20, pady=5, sticky="e")
+        self.api_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://platform.openai.com/api-keys"))
+        self.openai_entry = ctk.CTkEntry(self.settings_card, show="•", height=35)
+        self.openai_entry.grid(row=2, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.openai_entry.insert(0, self.config.get('openai', {}).get('api_key', ''))
+        self.test_openai_btn = ctk.CTkButton(self.settings_card, text="Test Key", width=80, command=self.test_openai_key)
+        self.test_openai_btn.grid(row=2, column=2, padx=(0, 20), pady=5, sticky="e")
+
+        self.google_link_label = ctk.CTkLabel(self.settings_card, text="Google API Key (Get Free):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
+        self.google_link_label.grid(row=3, column=0, padx=20, pady=5, sticky="e")
+        self.google_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://aistudio.google.com/app/apikey"))
+        self.google_entry = ctk.CTkEntry(self.settings_card, show="•", height=35)
+        self.google_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.google_entry.insert(0, self.config.get('google', {}).get('api_key', ''))
+        self.test_google_btn = ctk.CTkButton(self.settings_card, text="Test Key", width=80, command=self.test_google_key)
+        self.test_google_btn.grid(row=3, column=2, padx=(0, 20), pady=5, sticky="e")
+
+        ctk.CTkLabel(self.settings_card, text="AI Chat Model:", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=5, sticky="e")
+        self.model_menu = ctk.CTkOptionMenu(self.settings_card, values=["gpt-4o", "gpt-4o-mini", "gemini-2.5-flash", "gemini-2.5-pro"], height=35)
+        self.model_menu.grid(row=4, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
+        self.model_menu.set(self.config.get('openai', {}).get('chat_model', 'gpt-4o'))
+
+        ctk.CTkLabel(self.settings_card, text="Whisper Transcribe Model:", font=ctk.CTkFont(weight="bold")).grid(row=5, column=0, padx=20, pady=5, sticky="e")
+        self.whisper_menu = ctk.CTkOptionMenu(self.settings_card, values=["tiny", "base", "small", "medium", "large"], height=35)
+        self.whisper_menu.grid(row=5, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
+        self.whisper_menu.set(self.config.get('openai', {}).get('whisper_model', 'base'))
+
+        ctk.CTkLabel(self.settings_card, text="VOD Download Size:", font=ctk.CTkFont(weight="bold")).grid(row=6, column=0, padx=20, pady=5, sticky="e")
+        self.quality_menu = ctk.CTkOptionMenu(self.settings_card, values=["Best", "1080p", "720p"], height=35)
+        self.quality_menu.grid(row=6, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
+        self.quality_menu.set(self.config.get('settings', {}).get('download_quality', 'Best'))
+
+        ctk.CTkLabel(self.settings_card, text="Raw VODs Folder:", font=ctk.CTkFont(weight="bold")).grid(row=7, column=0, padx=20, pady=5, sticky="e")
+        self.vod_dir_entry = ctk.CTkEntry(self.settings_card, height=35)
+        self.vod_dir_entry.grid(row=7, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.vod_dir_entry.insert(0, self.config.get('settings', {}).get('download_dir', ''))
+        self.vod_browse_btn = ctk.CTkButton(self.settings_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.vod_dir_entry))
+        self.vod_browse_btn.grid(row=7, column=2, padx=(0, 20), pady=5, sticky="e")
+
+        ctk.CTkLabel(self.settings_card, text="Generated Clips Folder:", font=ctk.CTkFont(weight="bold")).grid(row=8, column=0, padx=20, pady=(5, 15), sticky="e")
+        self.clip_dir_entry = ctk.CTkEntry(self.settings_card, height=35)
+        self.clip_dir_entry.grid(row=8, column=1, padx=(0, 10), pady=(5, 15), sticky="ew")
+        self.clip_dir_entry.insert(0, self.config.get('settings', {}).get('clips_dir', ''))
+        self.clip_browse_btn = ctk.CTkButton(self.settings_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.clip_dir_entry))
+        self.clip_browse_btn.grid(row=8, column=2, padx=(0, 20), pady=(5, 15), sticky="e")
+
+        ctk.CTkLabel(self.settings_card, text="Auth Browser (Cookies):", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=20, pady=(5, 15), sticky="e")
+        self.browser_menu = ctk.CTkOptionMenu(self.settings_card, values=["None", "chrome", "edge", "firefox", "opera", "brave", "vivaldi"], height=35)
+        self.browser_menu.grid(row=9, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
+        self.browser_menu.set(self.config.get('settings', {}).get('auth_browser', 'None'))
+
+        # --- ADVANCED SETTINGS ---
+        self.hardware_switch = ctk.CTkSwitch(self.settings_card, text="GPU Hardware Encoding (NVENC/AMF)", font=ctk.CTkFont(weight="bold"))
+        self.hardware_switch.grid(row=10, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+
+        self.downmix_switch = ctk.CTkSwitch(self.settings_card, text="Downmix Multi-Track Audio (OBS)", font=ctk.CTkFont(weight="bold"))
+        self.downmix_switch.grid(row=11, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+
+        # --- VR STABILIZATION ---
+        self.stabilize_switch = ctk.CTkSwitch(self.settings_card, text="Apply VR Anti-Shake Filter", font=ctk.CTkFont(weight="bold"))
+        self.stabilize_switch.grid(row=12, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+
+        # --- VERTICAL EXPORT SETTINGS ---
+        self.vertical_switch = ctk.CTkSwitch(self.settings_card, text="Generate Vertical Shorts (9:16)", font=ctk.CTkFont(weight="bold"))
+        self.vertical_switch.grid(row=13, column=0, padx=20, pady=(15, 5), sticky="w")
+        
+        self.vertical_mode_menu = ctk.CTkOptionMenu(
+            self.settings_card, 
+            values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Facecam Bottom-Left", "Facecam Bottom-Right", "Custom Coordinates"],
+            height=35
+        )
+        self.vertical_mode_menu.grid(row=13, column=1, columnspan=2, padx=(0, 20), pady=(15, 5), sticky="w")
+
+        self.coord_frame = ctk.CTkFrame(self.settings_card, fg_color="transparent")
+        self.coord_frame.grid(row=14, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
+        
+        ctk.CTkLabel(self.coord_frame, text="X:").pack(side="left", padx=(0, 5))
+        self.crop_x_entry = ctk.CTkEntry(self.coord_frame, width=50)
+        self.crop_x_entry.pack(side="left", padx=(0, 10))
+        
+        ctk.CTkLabel(self.coord_frame, text="Y:").pack(side="left", padx=(0, 5))
+        self.crop_y_entry = ctk.CTkEntry(self.coord_frame, width=50)
+        self.crop_y_entry.pack(side="left", padx=(0, 10))
+        
+        ctk.CTkLabel(self.coord_frame, text="W:").pack(side="left", padx=(0, 5))
+        self.crop_w_entry = ctk.CTkEntry(self.coord_frame, width=50)
+        self.crop_w_entry.pack(side="left", padx=(0, 10))
+        
+        ctk.CTkLabel(self.coord_frame, text="H:").pack(side="left", padx=(0, 5))
+        self.crop_h_entry = ctk.CTkEntry(self.coord_frame, width=50)
+        self.crop_h_entry.pack(side="left", padx=(0, 0))
+
+        # LOAD SAVED STATES
+        settings_cfg = self.config.get('settings', {})
+        if settings_cfg.get('vr_stabilization', False): self.stabilize_switch.select()
+        else: self.stabilize_switch.deselect()
+
+        if settings_cfg.get('hardware_encoding', False): self.hardware_switch.select()
+        else: self.hardware_switch.deselect()
+
+        if settings_cfg.get('audio_downmix', True): self.downmix_switch.select()
+        else: self.downmix_switch.deselect()
+
+        if settings_cfg.get('vertical_export', False): self.vertical_switch.select()
+        else: self.vertical_switch.deselect()
+        
+        self.vertical_mode_menu.set(settings_cfg.get('vertical_mode', 'Standard Center Crop'))
+        self.crop_x_entry.insert(0, settings_cfg.get('crop_x', '0'))
+        self.crop_y_entry.insert(0, settings_cfg.get('crop_y', '0'))
+        self.crop_w_entry.insert(0, settings_cfg.get('crop_w', '400'))
+        self.crop_h_entry.insert(0, settings_cfg.get('crop_h', '225'))
+
+        self.help_card = ctk.CTkFrame(self.settings_frame, corner_radius=15, fg_color="#1a1a1a")
+        self.help_card.grid(row=13, column=0, padx=30, pady=(20, 0), sticky="ew")
+        
+        help_text = (
+            "🛠️ v1.1.6 Quick Setup & Troubleshooting:\n\n"
+            "1. AI Engines: Gemini 2.5 Flash is highly recommended for streams over 1 hour.\n"
+            "2. Hardware: NVIDIA GPUs (CUDA) process audio infinitely faster than standard CPUs.\n"
+            "3. Vertical Generation uses FFmpeg complex filtergraphs. Custom Coordinates apply to 1080p source video."
+        )
+        self.help_label = ctk.CTkLabel(self.help_card, text=help_text, justify="left", font=ctk.CTkFont(size=12), padx=20, pady=20)
+        self.help_label.pack(anchor="w")
+
+        self.save_btn = ctk.CTkButton(self.settings_frame, text="Save Settings", height=45, font=ctk.CTkFont(weight="bold"), command=self.save_settings)
+        self.save_btn.grid(row=14, column=0, padx=30, pady=20, sticky="e")
+
+        # ==================== GALLERY FRAME ====================
+        self.gallery_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.gallery_frame.grid_columnconfigure(1, weight=1)
+        self.gallery_frame.grid_rowconfigure(1, weight=1)
+
+        self.gallery_title = ctk.CTkLabel(self.gallery_frame, text="Clip Gallery & Reasoning", font=ctk.CTkFont(size=28, weight="bold"))
+        self.gallery_title.grid(row=0, column=0, columnspan=2, padx=30, pady=(30, 10), sticky="w")
+
+        self.clip_listbox = ctk.CTkScrollableFrame(self.gallery_frame, width=300, corner_radius=15)
+        self.clip_listbox.grid(row=1, column=0, padx=(30, 10), pady=10, sticky="nsew")
+        
+        self.refresh_gallery_btn = ctk.CTkButton(self.gallery_frame, text="🔄 Refresh List", command=self.populate_gallery)
+        self.refresh_gallery_btn.grid(row=2, column=0, padx=(30, 10), pady=(0, 20), sticky="ew")
+
+        self.details_card = ctk.CTkFrame(self.gallery_frame, corner_radius=15)
+        self.details_card.grid(row=1, column=1, rowspan=2, padx=(10, 30), pady=(10, 20), sticky="nsew")
+        self.details_card.grid_columnconfigure(0, weight=1)
+
+        self.detail_title = ctk.CTkLabel(self.details_card, text="Select a clip to view details", font=ctk.CTkFont(size=20, weight="bold"))
+        self.detail_title.grid(row=0, column=0, padx=20, pady=20, sticky="w")
+
+        # THE FINAL FIX: Moving text_color to the widget level, outside of the CTkFont bounds!
+        self.detail_score = ctk.CTkLabel(self.details_card, text="Score: --/10", font=ctk.CTkFont(size=16), text_color="#2ecc71")
+        self.detail_score.grid(row=1, column=0, padx=20, pady=5, sticky="w")
+
+        self.detail_reasoning = ctk.CTkTextbox(self.details_card, font=ctk.CTkFont(size=14), wrap="word", fg_color="transparent")
+        self.detail_reasoning.grid(row=2, column=0, padx=20, pady=10, sticky="nsew")
+        self.details_card.grid_rowconfigure(2, weight=1)
+
+        self.play_clip_btn = ctk.CTkButton(self.details_card, text="▶️ Play Clip", height=50, font=ctk.CTkFont(weight="bold"), state="disabled")
+        self.play_clip_btn.grid(row=3, column=0, padx=20, pady=20, sticky="ew")
+
+        self.load_prompt_data()
+        self.show_manual_frame()
+
+    # --- API Testers ---
+    def test_openai_key(self):
+        key = self.openai_entry.get().strip()
+        self.test_openai_btn.configure(text="Testing...", fg_color="#e67e22")
+        def run_test():
+            try:
+                from openai import OpenAI # type: ignore
+                client = OpenAI(api_key=key)
+                client.models.list() 
+                self.after(0, lambda: self.test_openai_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
+            except:
+                self.after(0, lambda: self.test_openai_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
+            self.after(3000, lambda: self.test_openai_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
+        threading.Thread(target=run_test, daemon=True).start()
+
+    def test_google_key(self):
+        key = self.google_entry.get().strip()
+        self.test_google_btn.configure(text="Testing...", fg_color="#e67e22")
+        def run_test():
+            try:
+                import google.generativeai as genai # type: ignore
+                genai.configure(api_key=key)
+                list(genai.list_models()) 
+                self.after(0, lambda: self.test_google_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
+            except:
+                self.after(0, lambda: self.test_google_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
+            self.after(3000, lambda: self.test_google_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
+        threading.Thread(target=run_test, daemon=True).start()
+
+    # --- Helpers ---
+    def log_to_console(self, text):
+        def update_text():
+            for box in [self.console_box, self.auto_console]:
+                box.configure(state="normal")
+                box.insert("end", text + "\n")
+                box.configure(state="disabled")
+                box.see("end")
+        self.after(0, update_text)
+
+        try:
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open("app_crash_log.txt", "a", encoding="utf-8") as f:
+                f.write(f"[{timestamp}] {text}\n")
+        except Exception:
+            pass
+
+    def browse_folder(self, entry_widget):
+        folder_selected = filedialog.askdirectory()
+        if folder_selected:
+            entry_widget.delete(0, "end")
+            entry_widget.insert(0, folder_selected)
+
+    def open_logs(self):
+        log_path = os.path.abspath("app_crash_log.txt")
+        if os.path.exists(log_path):
+            subprocess.run(['explorer', '/select,', log_path])
+        else:
+            if hasattr(os, 'startfile'):
+                os.startfile(os.path.abspath(".")) # type: ignore
+
+    def open_local_folder(self, key):
+        path = self.config.get('settings', {}).get(key, "")
+        if path and hasattr(os, 'startfile'): 
+            os.startfile(os.path.abspath(path)) # type: ignore
+
+    def open_readme(self):
+        if os.path.exists("README.md") and hasattr(os, 'startfile'): 
+            os.startfile(os.path.abspath("README.md")) # type: ignore
+
+    def get_video_id(self, url):
+        try:
+            startupinfo = None
+            if os.name == 'nt' and hasattr(subprocess, 'STARTUPINFO'):
+                startupinfo = subprocess.STARTUPINFO() # type: ignore
+                if hasattr(subprocess, 'STARTF_USESHOWWINDOW'):
+                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW # type: ignore
+                if hasattr(subprocess, 'SW_HIDE'):
+                    startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
+
+            cmd = [watcher.YTDLP_PATH, "--get-id", url]
+            result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
+            return result.stdout.strip()
+        except Exception as e:
+            self.log_to_console(f"❌ yt-dlp error: {e}") 
+            return None
+
+    def show_manual_frame(self):
+        self._hide_all_frames()
+        self.manual_frame.grid(row=0, column=1, sticky="nsew")
+        self._highlight_button(self.nav_manual_btn)
+
+    def show_auto_frame(self):
+        self._hide_all_frames()
+        self.auto_frame.grid(row=0, column=1, sticky="nsew")
+        self._highlight_button(self.nav_auto_btn)
+
+    def show_prompt_frame(self):
+        self._hide_all_frames()
+        self.prompt_frame.grid(row=0, column=1, sticky="nsew")
+        self._highlight_button(self.nav_prompt_btn)
+
+    def show_settings_frame(self):
+        self._hide_all_frames()
+        self.settings_frame.grid(row=0, column=1, sticky="nsew")
+        self._highlight_button(self.nav_settings_btn)
+
+    def show_gallery_frame(self):
+        self._hide_all_frames()
+        self.gallery_frame.grid(row=0, column=1, sticky="nsew")
+        self._highlight_button(self.nav_gallery_btn)
+        self.populate_gallery()
+
+    def _hide_all_frames(self):
+        for f in [self.manual_frame, self.auto_frame, self.prompt_frame, self.settings_frame, self.gallery_frame]: 
+            f.grid_forget()
+
+    def _highlight_button(self, active_button):
+        for btn in [self.nav_manual_btn, self.nav_auto_btn, self.nav_prompt_btn, self.nav_settings_btn, self.nav_gallery_btn]: 
+            btn.configure(fg_color="transparent")
+        active_button.configure(fg_color="#1f538d")
+
+    def load_prompt_data(self):
+        profiles = self.config.get("prompts", {}).get("profiles", {})
+        if not profiles: return
+        p_names = list(profiles.keys())
+        self.profile_dropdown.configure(values=p_names)
+        active = self.config["prompts"].get("active_profile", p_names[0])
+        self.profile_dropdown.set(active)
+        self.on_profile_change(active)
+        self.auto_prompt_menu.configure(values=p_names)
+        auto_active = self.config.get("auto_scheduler", {}).get("auto_prompt_profile", p_names[0])
+        self.auto_prompt_menu.set(auto_active if auto_active in p_names else p_names[0])
+
+    def on_profile_change(self, choice):
+        self.config["prompts"]["active_profile"] = choice
+        p_text = self.config["prompts"]["profiles"].get(choice, "")
+        self.prompt_textbox.delete("1.0", "end")
+        self.prompt_textbox.insert("1.0", p_text)
+
+    def create_new_profile(self):
+        dialog = ctk.CTkInputDialog(text="Enter a name for your new prompt profile:", title="New Profile")
+        new_name = dialog.get_input()
+        
+        if new_name:
+            new_name = new_name.strip()
+            if new_name and new_name not in self.config["prompts"]["profiles"]:
+                self.config["prompts"]["profiles"][new_name] = "You are a specialized Gaming Editor. Your goal is to..."
+                self.config["prompts"]["active_profile"] = new_name
+                config_manager.save_config(self.config)
+                self.load_prompt_data()
+                self.log_to_console(f"📝 Created new prompt profile: '{new_name}'")
+
+    def save_current_prompt(self):
+        active = self.profile_dropdown.get()
+        self.config["prompts"]["profiles"][active] = self.prompt_textbox.get("1.0", "end").strip()
+        config_manager.save_config(self.config)
+        self.save_prompt_btn.configure(text="✅ Saved!", fg_color="#2ecc71")
+        self.after(2000, lambda: self.save_prompt_btn.configure(text="Save Prompt", fg_color=["#3a7ebf", "#1f538d"]))
+
+    def delete_profile(self):
+        active = self.profile_dropdown.get()
+        if len(self.config["prompts"]["profiles"]) > 1:
+            del self.config["prompts"]["profiles"][active]
+            config_manager.save_config(self.config)
+            self.load_prompt_data()
+
+    def save_settings(self):
+        self.config['youtube']['channel_id'] = self.yt_id_entry.get()
+        self.config['twitch']['username'] = self.twitch_entry.get()
+        self.config['openai']['api_key'] = self.openai_entry.get()
+        
+        if 'google' not in self.config:
+            self.config['google'] = {}
+        self.config['google']['api_key'] = self.google_entry.get()
+        
+        self.config['openai']['chat_model'] = self.model_menu.get()
+        self.config['openai']['whisper_model'] = self.whisper_menu.get()
+        self.config['settings']['download_quality'] = self.quality_menu.get()
+        self.config['settings']['download_dir'] = self.vod_dir_entry.get()
+        self.config['settings']['clips_dir'] = self.clip_dir_entry.get()
+        self.config['settings']['auth_browser'] = self.browser_menu.get()
+        
+        self.config['settings']['vr_stabilization'] = self.stabilize_switch.get() == 1
+        self.config['settings']['hardware_encoding'] = self.hardware_switch.get() == 1
+        self.config['settings']['audio_downmix'] = self.downmix_switch.get() == 1
+        self.config['settings']['vertical_export'] = self.vertical_switch.get() == 1
+        self.config['settings']['vertical_mode'] = self.vertical_mode_menu.get()
+        self.config['settings']['crop_x'] = self.crop_x_entry.get()
+        self.config['settings']['crop_y'] = self.crop_y_entry.get()
+        self.config['settings']['crop_w'] = self.crop_w_entry.get()
+        self.config['settings']['crop_h'] = self.crop_h_entry.get()
+
+        config_manager.save_config(self.config)
+        self.log_to_console("✅ Settings saved!")
+
+    # --- Gallery Logic ---
+    def populate_gallery(self):
+        for widget in self.clip_listbox.winfo_children():
+            widget.destroy()
+
+        clips_dir = self.config.get('settings', {}).get('clips_dir', '')
+        if not clips_dir or not os.path.exists(clips_dir):
+            return
+
+        mp4_files = [f for f in os.listdir(clips_dir) if f.endswith(".mp4")]
+        for file in mp4_files:
+            btn = ctk.CTkButton(self.clip_listbox, text=file, fg_color="#2b2b2b", hover_color="#3b3b3b", anchor="w", 
+                                command=lambda f=file: self.load_clip_details(f, clips_dir))
+            btn.pack(fill="x", pady=2, padx=5)
+
+    def load_clip_details(self, filename, directory):
+        self.detail_title.configure(text=filename)
+        mp4_path = os.path.join(directory, filename)
+        
+        base_json_name = filename.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json")
+        json_path = os.path.join(directory, base_json_name)
+
+        self.detail_reasoning.configure(state="normal")
+        self.detail_reasoning.delete("1.0", "end")
+
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    score = data.get("virality_score", "N/A")
+                    reasoning = data.get("reasoning", "No reasoning provided by AI.")
+                    self.detail_score.configure(text=f"Virality Score: {score}/10")
+                    self.detail_reasoning.insert("1.0", reasoning)
+            except Exception:
+                self.detail_score.configure(text="Score: N/A")
+                self.detail_reasoning.insert("1.0", "Error reading metadata.")
+        else:
+            self.detail_score.configure(text="Score: N/A")
+            self.detail_reasoning.insert("1.0", "No AI metadata found for this clip (might be an older generation).")
+
+        self.detail_reasoning.configure(state="disabled")
+        if hasattr(os, 'startfile'):
+            self.play_clip_btn.configure(state="normal", command=lambda: os.startfile(mp4_path)) # type: ignore
+
+    # --- Processing Engine ---
+    def browse_local_file(self):
+        file_paths = filedialog.askopenfilenames(
+            title="Select Local Video File(s)",
+            filetypes=[("Video Files", "*.mp4 *.mkv *.avi *.mov *.flv")]
+        )
+        if file_paths:
+            self.url_input.delete(0, "end")
+            self.url_input.insert(0, ";".join(file_paths))
+
+    def start_manual_process(self):
+        input_val = self.url_input.get().strip()
+        if input_val:
+            self.process_btn.configure(state="disabled", text="Processing...")
+            self.local_file_btn.configure(state="disabled")
+            self.manual_progress.start()
+            self.console_box.configure(state="normal")
+            self.console_box.delete("1.0", "end")
+            self.console_box.configure(state="disabled")
+            
+            threading.Thread(target=self._process_video_thread, args=(input_val,), daemon=True).start()
+
+    def _process_video_thread(self, input_val):
+        try:
+            profile = self.profile_dropdown.get()
+            queue = [item.strip() for item in input_val.split(";") if item.strip()]
+            
+            for index, item in enumerate(queue):
+                if len(queue) > 1:
+                    self.log_to_console(f"\n📦 BATCH PROCESS: Starting item {index + 1} of {len(queue)}...")
+
+                if os.path.exists(item):
+                    self.log_to_console(f"📁 Local file detected: {item}")
+                    editor.process_video(item, prompt_profile=profile, logger=self.log_to_console)
+                    
+                elif item.startswith("http") or "twitch.tv" in item or "youtu" in item:
+                    self.log_to_console(f"🌐 URL detected: {item}")
+                    v_id = self.get_video_id(item)
+                    if not v_id:
+                        self.log_to_console("❌ Video ID error. Skipping.")
+                        continue
+                    f_path = watcher.download_with_subprocess(item, v_id, logger_callback=self.log_to_console, force_manual=True)
+                    if f_path:
+                        editor.process_video(f_path, prompt_profile=profile, logger=self.log_to_console)
+                else:
+                    self.log_to_console(f"❌ Invalid input: {item}")
+
+            self.log_to_console("🏁 ALL TASKS COMPLETE!")
+                
+        except Exception as e:
+            self.log_to_console(f"❌ Error: {e}")
+        finally:
+            self.after(0, lambda: [
+                self.process_btn.configure(state="normal", text="Process Queue"), 
+                self.local_file_btn.configure(state="normal"),
+                self.manual_progress.stop(),
+                self.populate_gallery()
+            ])
+
+    def toggle_auto(self):
+        if self.auto_switch.get() == 1:
+            if "auto_scheduler" not in self.config:
+                self.config["auto_scheduler"] = {}
+            self.config["auto_scheduler"]["platform"] = self.platform_menu.get()
+            self.config["auto_scheduler"]["video_type"] = self.type_menu.get()
+            self.config["auto_scheduler"]["target_orientation"] = self.target_menu.get()
+            self.config["auto_scheduler"]["lookback_days"] = self.lookback_menu.get()
+            self.config["auto_scheduler"]["check_interval"] = self.interval_menu.get()
+            self.config["auto_scheduler"]["auto_prompt_profile"] = self.auto_prompt_menu.get()
+            config_manager.save_config(self.config)
+
+            self.is_auto_running = True
+            self.auto_status.configure(text="● Status: RUNNING", text_color="#2ecc71")
+            self.auto_progress.start()
+            self.log_to_console("📡 Auto-Scheduler enabled. Saving config and monitoring channels...")
+            threading.Thread(target=self._auto_run_loop, daemon=True).start()
+        else:
+            self.is_auto_running = False
+            self.auto_status.configure(text="● Status: OFF", text_color="gray")
+            self.auto_progress.stop()
+            self.auto_progress.set(0)
+            self.log_to_console("🛑 Auto-Scheduler disabled.")
+
+    def _auto_run_loop(self):
+        while self.is_auto_running:
+            watcher.main(logger_callback=self.log_to_console)
+            for _ in range(14400):
+                if not self.is_auto_running: break
+                time.sleep(1)
+
+    def minimize_to_tray(self):
+        self.withdraw() 
+        try:
+            image = Image.open("app_icon.ico")
+        except:
+            image = Image.new('RGB', (64, 64), color=(31, 83, 141))
+
+        menu = pystray.Menu(
+            pystray.MenuItem('Show Generator', self.show_window),
+            pystray.MenuItem('Quit', self.quit_window)
+        )
+        
+        self.tray_icon = pystray.Icon("jBahrsClipGen", image, "jBahr's Clip Generator", menu) # type: ignore
+        self.tray_icon.run_detached() # type: ignore
+
+    def show_window(self, icon, item):
+        if self.tray_icon: 
+            self.tray_icon.stop() # type: ignore
+        self.after(0, self.deiconify) 
+
+    def quit_window(self, icon, item):
+        if self.tray_icon: 
+            self.tray_icon.stop() # type: ignore
+        self.is_auto_running = False  
+        self.after(0, self.destroy)   
+
+if __name__ == "__main__":
+    app = ClipGenApp()
+    app.mainloop()

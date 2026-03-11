@@ -1,0 +1,25 @@
+# Python stuff
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Build folders
+build/
+dist/
+*.spec
+
+# Personal / Local Data
+config.json
+cookies.txt
+*.mp4
+*.mp3
+*.txt
+
+# External Executables
+*.exe
+
+# Configuration and API Keys (CRITICAL)
+config.json
+
+# Logs
+app_crash_log.txt
