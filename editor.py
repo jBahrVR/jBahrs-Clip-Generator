@@ -3,9 +3,31 @@ import json
 import subprocess
 import torch # type: ignore
 import whisper # type: ignore
-import config_manager # type: ignore
-from openai import OpenAI # type: ignore
 import numpy as np # type: ignore
+import sys
+import io
+import contextlib
+
+class WhisperProgressStream(io.StringIO):
+    def __init__(self, logger):
+        super().__init__()
+        self.logger = logger
+        self.counter = 0
+
+    def write(self, s):
+        raw_msg = s.strip()
+        if raw_msg and "-->" in raw_msg:
+            # Throttle to log only every 10th segment to prevent UI span lag
+            if self.counter % 10 == 0:
+                clean_msg = raw_msg.split("]")[1].strip() if "]" in raw_msg else raw_msg
+                timestamp = raw_msg.split("]")[0].replace("[", "").split("-->")[0].strip() if "-->" in raw_msg else ""
+                if self.logger:
+                    self.logger(f"⏳ Processed up to {timestamp}: {clean_msg[:40]}...")
+            self.counter += 1
+        super().write(s)
+
+    def flush(self):
+        pass
 
 try:
     import google.generativeai as genai # type: ignore
@@ -112,9 +134,9 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
         
         cmd = [
             "ffmpeg", "-y", 
-            "-i", file_path, 
             "-ss", str(start_time), 
             "-to", str(end_time), 
+            "-i", file_path, 
             "-c:v", video_codec,
             "-preset", "fast" if not hardware_encoding else "p4" # p4 is a safe default preset for nvenc
         ]
@@ -157,7 +179,10 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
                 if vertical_mode == "Standard Center Crop":
                     vf_command = "crop=ih*9/16:ih,scale=1080:1920"
                     vert_cmd = [
-                        "ffmpeg", "-y", "-i", output_file, 
+                        "ffmpeg", "-y", 
+                        "-ss", str(start_time), 
+                        "-to", str(end_time), 
+                        "-i", file_path, 
                         "-vf", vf_command, 
                         "-c:v", video_codec, "-preset", "fast" if not hardware_encoding else "p4", 
                     ]
@@ -183,7 +208,10 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
                     filter_complex = f"[0:v]crop={w}:{h}:{x}:{y},scale=1080:840[cam];[0:v]crop=1080:1080:420:0[game];[cam][game]vstack=inputs=2[out]"
                     
                     vert_cmd = [
-                        "ffmpeg", "-y", "-i", output_file, 
+                        "ffmpeg", "-y", 
+                        "-ss", str(start_time), 
+                        "-to", str(end_time), 
+                        "-i", file_path, 
                         "-filter_complex", filter_complex, 
                         "-map", "[out]", "-map", "0:a", 
                         "-c:v", video_codec, "-preset", "fast" if not hardware_encoding else "p4", 
@@ -194,6 +222,9 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
                     vert_cmd.extend(audio_codec_flags)
                     vert_cmd.append(vert_output)
 
+                if is_cancelled and is_cancelled():
+                    if logger: logger("🛑 Clip extraction aborted by user.")
+                    break
                 subprocess.run(vert_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
                 created_files.append(vert_output)
 
@@ -206,6 +237,9 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
                 "ffmpeg", "-y", "-ss", str(mid_point), "-i", target_for_thumb,
                 "-vframes", "1", "-vf", "scale=-1:200", "-q:v", "5", thumb_file
             ]
+            if is_cancelled and is_cancelled():
+                if logger: logger("🛑 Clip extraction aborted by user.")
+                break
             subprocess.run(thumb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
 
         except Exception as e:
@@ -282,16 +316,31 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
 
     if is_cancelled and is_cancelled(): return
 
-    if logger: logger("🎙️ Transcribing audio and measuring peak levels (this may take a while)...")
+    audio_peak_detection = config.get("settings", {}).get("audio_peak_detection", False)
+
+    if logger:
+        if audio_peak_detection:
+            logger("🎙️ Transcribing audio and measuring peak levels (this may take a while)...")
+        else:
+            logger("🎙️ Transcribing audio...")
+            
     try:
-        # We feed the raw audio_array directly to Whisper, completely bypassing its command window bug!
-        result = model.transcribe(audio_array, condition_on_previous_text=False, beam_size=1)
+        fp16_enabled = True if device == "cuda" else False
+        
+        # We redirect stdout globally during transcribe using our Stream that only surfaces major segment progress
+        progress_stream = WhisperProgressStream(logger)
+        with contextlib.redirect_stdout(progress_stream):
+            result = model.transcribe(audio_array, condition_on_previous_text=False, beam_size=1, fp16=fp16_enabled, verbose=True)
+            
         raw_segments = result.get("segments", [])
         
-        # Inject Audio Peak Detection Logic
-        segments = analyze_audio_peaks(audio_array, raw_segments)
-        
-        if logger: logger("✅ Transcription complete! Peak volumes measured.")
+        if audio_peak_detection:
+            segments = analyze_audio_peaks(audio_array, raw_segments)
+            if logger: logger("✅ Transcription complete! Peak volumes measured.")
+        else:
+            segments = raw_segments
+            if logger: logger("✅ Transcription complete!")
+            
     except Exception as e:
         if logger: logger(f"❌ Transcription error: {e}")
         return

@@ -18,6 +18,9 @@ import editor # type: ignore
 import pystray # type: ignore
 import json
 from PIL import Image # type: ignore
+import logging
+from logging.handlers import RotatingFileHandler
+import datetime
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -33,6 +36,8 @@ class ClipGenApp(ctk.CTk):
         
         self.config = config_manager.load_config()
         self.is_auto_running = False
+
+        self._init_logging()
 
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
@@ -290,7 +295,14 @@ class ClipGenApp(ctk.CTk):
         self.test_google_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_google_key)
         self.test_google_btn.grid(row=7, column=2, padx=(0, 20), pady=5, sticky="e")
 
-        ctk.CTkLabel(self.api_card, text="AI Chat Model:", font=ctk.CTkFont(weight="bold")).grid(row=8, column=0, padx=20, pady=5, sticky="e")
+        ctk.CTkLabel(self.api_card, text="Discord Webhook URL (Optional):", font=ctk.CTkFont(weight="bold")).grid(row=8, column=0, padx=20, pady=5, sticky="e")
+        self.discord_entry = ctk.CTkEntry(self.api_card, height=35)
+        self.discord_entry.grid(row=8, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.discord_entry.insert(0, self.config.get('integrations', {}).get('discord_webhook', ''))
+        self.test_discord_btn = ctk.CTkButton(self.api_card, text="Test Alert", width=80, command=self.test_discord_webhook)
+        self.test_discord_btn.grid(row=8, column=2, padx=(0, 20), pady=5, sticky="e")
+
+        ctk.CTkLabel(self.api_card, text="AI Chat Model:", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=20, pady=5, sticky="e")
         self.model_menu = ctk.CTkOptionMenu(self.api_card, values=[
             "gpt-4o", "gpt-4o-mini", 
             "gemini-2.5-flash", "gemini-2.5-pro",
@@ -299,12 +311,12 @@ class ClipGenApp(ctk.CTk):
             "deepseek-chat", "deepseek-reasoner",
             "openrouter/google/gemini-2.5-pro", "openrouter/meta-llama/llama-3.1-70b-instruct"
         ], height=35)
-        self.model_menu.grid(row=8, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
+        self.model_menu.grid(row=9, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
         self.model_menu.set(self.config.get('openai', {}).get('chat_model', 'gpt-4o'))
 
-        ctk.CTkLabel(self.api_card, text="Whisper Transcribe Model:", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=20, pady=(5, 15), sticky="e")
+        ctk.CTkLabel(self.api_card, text="Whisper Transcribe Model:", font=ctk.CTkFont(weight="bold")).grid(row=10, column=0, padx=20, pady=(5, 15), sticky="e")
         self.whisper_menu = ctk.CTkOptionMenu(self.api_card, values=["tiny", "base", "small", "medium", "large"], height=35)
-        self.whisper_menu.grid(row=9, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="ew")
+        self.whisper_menu.grid(row=10, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="ew")
         self.whisper_menu.set(self.config.get('openai', {}).get('whisper_model', 'base'))
         self.whisper_menu.set(self.config.get('openai', {}).get('whisper_model', 'base'))
 
@@ -352,21 +364,24 @@ class ClipGenApp(ctk.CTk):
         self.downmix_switch = ctk.CTkSwitch(self.proc_card, text="Downmix Multi-Track Audio (OBS)", font=ctk.CTkFont(weight="bold"))
         self.downmix_switch.grid(row=2, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
-        self.stabilize_switch = ctk.CTkSwitch(self.proc_card, text="Apply VR Anti-Shake Filter", font=ctk.CTkFont(weight="bold"))
-        self.stabilize_switch.grid(row=3, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+        self.audio_peak_switch = ctk.CTkSwitch(self.proc_card, text="Measure Audio Peak Levels (Slow)", font=ctk.CTkFont(weight="bold"))
+        self.audio_peak_switch.grid(row=3, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+
+        self.stabilize_switch = ctk.CTkSwitch(self.proc_card, text="Apply VR Anti-Shake Filter (Experimental/Slow)", font=ctk.CTkFont(weight="bold"))
+        self.stabilize_switch.grid(row=4, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
         self.vertical_switch = ctk.CTkSwitch(self.proc_card, text="Generate Vertical Shorts (9:16)", font=ctk.CTkFont(weight="bold"))
-        self.vertical_switch.grid(row=4, column=0, padx=20, pady=(15, 5), sticky="w")
+        self.vertical_switch.grid(row=5, column=0, padx=20, pady=(15, 5), sticky="w")
         
         self.vertical_mode_menu = ctk.CTkOptionMenu(
             self.proc_card, 
             values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Facecam Bottom-Left", "Facecam Bottom-Right", "Custom Coordinates"],
             height=35
         )
-        self.vertical_mode_menu.grid(row=4, column=1, columnspan=2, padx=(0, 20), pady=(15, 5), sticky="w")
+        self.vertical_mode_menu.grid(row=5, column=1, columnspan=2, padx=(0, 20), pady=(15, 5), sticky="w")
 
         self.coord_frame = ctk.CTkFrame(self.proc_card, fg_color="transparent")
-        self.coord_frame.grid(row=5, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
+        self.coord_frame.grid(row=6, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
         
         ctk.CTkLabel(self.coord_frame, text="X:").pack(side="left", padx=(0, 5))
         self.crop_x_entry = ctk.CTkEntry(self.coord_frame, width=50)
@@ -394,6 +409,9 @@ class ClipGenApp(ctk.CTk):
 
         if settings_cfg.get('audio_downmix', True): self.downmix_switch.select()
         else: self.downmix_switch.deselect()
+
+        if settings_cfg.get('audio_peak_detection', False): self.audio_peak_switch.select()
+        else: self.audio_peak_switch.deselect()
 
         if settings_cfg.get('vertical_export', False): self.vertical_switch.select()
         else: self.vertical_switch.deselect()
@@ -431,10 +449,13 @@ class ClipGenApp(ctk.CTk):
         self.clip_listbox.grid(row=1, column=0, padx=(30, 10), pady=10, sticky="nsew")
         
         self.refresh_gallery_btn = ctk.CTkButton(self.gallery_frame, text="🔄 Refresh List", command=self.populate_gallery)
-        self.refresh_gallery_btn.grid(row=2, column=0, padx=(30, 10), pady=(0, 20), sticky="ew")
+        self.refresh_gallery_btn.grid(row=2, column=0, padx=(30, 10), pady=(0, 10), sticky="ew")
+
+        self.delete_marked_btn = ctk.CTkButton(self.gallery_frame, text="🗑️ Delete Marked Clips", fg_color="#c0392b", hover_color="#922b21", command=self.confirm_delete_marked)
+        self.delete_marked_btn.grid(row=3, column=0, padx=(30, 10), pady=(0, 20), sticky="ew")
 
         self.details_card = ctk.CTkFrame(self.gallery_frame, corner_radius=15)
-        self.details_card.grid(row=1, column=1, rowspan=2, padx=(10, 30), pady=(10, 20), sticky="nsew")
+        self.details_card.grid(row=1, column=1, rowspan=3, padx=(10, 30), pady=(10, 20), sticky="nsew")
         self.details_card.grid_columnconfigure(0, weight=1)
 
         self.detail_title = ctk.CTkLabel(self.details_card, text="Select a clip to view details", font=ctk.CTkFont(size=20, weight="bold"))
@@ -448,13 +469,41 @@ class ClipGenApp(ctk.CTk):
         self.detail_reasoning.grid(row=2, column=0, padx=20, pady=10, sticky="nsew")
         self.details_card.grid_rowconfigure(2, weight=1)
 
+        self.detail_thumbnail = ctk.CTkLabel(self.details_card, text="")
+        self.detail_thumbnail.grid(row=3, column=0, padx=20, pady=5)
+
         self.play_clip_btn = ctk.CTkButton(self.details_card, text="▶️ Play Clip", height=50, font=ctk.CTkFont(weight="bold"), state="disabled")
-        self.play_clip_btn.grid(row=3, column=0, padx=20, pady=20, sticky="ew")
+        self.play_clip_btn.grid(row=4, column=0, padx=20, pady=20, sticky="ew")
 
         self.load_prompt_data()
         self.show_manual_frame()
 
     # --- API Testers ---
+    def _init_logging(self):
+        log_dir = os.path.join(os.getcwd(), "logs")
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+
+        formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+        # Manual Logger
+        manual_path = os.path.join(log_dir, "manual_processor.log")
+        self.manual_logger = logging.getLogger("manual_logger")
+        self.manual_logger.setLevel(logging.INFO)
+        if not self.manual_logger.handlers:
+            manual_handler = RotatingFileHandler(manual_path, maxBytes=1024*1024, backupCount=9, encoding='utf-8')
+            manual_handler.setFormatter(formatter)
+            self.manual_logger.addHandler(manual_handler)
+
+        # Auto Logger
+        auto_path = os.path.join(log_dir, "auto_scheduler.log")
+        self.auto_logger = logging.getLogger("auto_logger")
+        self.auto_logger.setLevel(logging.INFO)
+        if not self.auto_logger.handlers:
+            auto_handler = RotatingFileHandler(auto_path, maxBytes=1024*1024, backupCount=9, encoding='utf-8')
+            auto_handler.setFormatter(formatter)
+            self.auto_logger.addHandler(auto_handler)
+
     def test_openai_key(self):
         key = self.openai_entry.get().strip()
         base_url = self.base_url_entry.get().strip()
@@ -515,8 +564,51 @@ class ClipGenApp(ctk.CTk):
             self.after(3000, lambda: self.test_google_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
         threading.Thread(target=run_test, daemon=True).start()
 
-    # --- Helpers ---
-    def log_to_console(self, text):
+    def test_discord_webhook(self):
+        url = self.discord_entry.get().strip()
+        if not url: return
+        self.test_discord_btn.configure(text="Testing...", fg_color="#e67e22")
+        def run_test():
+            try:
+                import urllib.request
+                import urllib.error
+                import json
+                req = urllib.request.Request(url, method="POST", headers={"Content-Type": "application/json"})
+                data = json.dumps({"content": "✅ **Test Alert from jBahr's Clip Generator!** The Webhook link is alive."}).encode('utf-8')
+                with urllib.request.urlopen(req, data=data) as response:
+                    if response.status in [200, 204]:
+                        self.after(0, lambda: self.test_discord_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
+                        self.after(3000, lambda: self.test_discord_btn.configure(text="Test Alert", fg_color=["#3a7ebf", "#1f538d"]))
+                        return
+                raise ValueError("Bad response")
+            except Exception:
+                self.after(0, lambda: self.test_discord_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
+                self.after(3000, lambda: self.test_discord_btn.configure(text="Test Alert", fg_color=["#3a7ebf", "#1f538d"]))
+        threading.Thread(target=run_test, daemon=True).start()
+
+    def send_discord_alert(self, title):
+        url = self.config.get("integrations", {}).get("discord_webhook", "").strip()
+        if not url: return
+        def run_alert():
+            try:
+                import urllib.request
+                import json
+                payload = {
+                    "content": None,
+                    "embeds": [{
+                        "title": "🎬 Generation Complete!",
+                        "description": f"The App has finished processing your queue.\n**Event:** {title}",
+                        "color": 3066993
+                    }]
+                }
+                req = urllib.request.Request(url, method="POST", headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, data=json.dumps(payload).encode('utf-8')) as _:
+                    pass
+            except Exception as e:
+                self.log_to_console(f"❌ Discord Webhook Failed: {e}")
+        threading.Thread(target=run_alert, daemon=True).start()
+
+    def log_to_console(self, text, source="system"):
         tag = None
         if "❌" in text or "error" in text.lower(): tag = "error"
         elif "✅" in text or "✨" in text or "🏁" in text: tag = "success"
@@ -524,22 +616,46 @@ class ClipGenApp(ctk.CTk):
         elif "✂️" in text or "🎞️" in text or "📸" in text or "📱" in text: tag = "ffmpeg"
         
         status_clean = text.split("]")[-1].strip() if "]" in text else text.strip()
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        display_text = f"[{timestamp}] {text}"
 
         def update_text():
-            self.manual_status_label.configure(text=f"Status: {status_clean}")
-            for box in [self.console_box, self.auto_console]:
-                box.configure(state="normal")
+            if source in ["manual", "system"]:
+                if source == "manual": self.manual_status_label.configure(text=f"Status: {status_clean}")
+                self.console_box.configure(state="normal")
                 if tag:
-                    box.insert("end", text + "\n", tag)
+                    self.console_box.insert("end", display_text + "\n", tag)
                 else:
-                    box.insert("end", text + "\n")
-                box.configure(state="disabled")
-                box.see("end")
+                    self.console_box.insert("end", display_text + "\n")
+                self.console_box.configure(state="disabled")
+                self.console_box.see("end")
+
+            if source in ["auto", "system"]:
+                self.auto_console.configure(state="normal")
+                if tag:
+                    self.auto_console.insert("end", display_text + "\n", tag)
+                else:
+                    self.auto_console.insert("end", display_text + "\n")
+                self.auto_console.configure(state="disabled")
+                self.auto_console.see("end")
+
         self.after(0, update_text)
 
+        # Trigger Discord Webhook on Auto-Scheduler Completion
+        if "🏁 Auto-Scheduler finished processing the new video!" in text:
+            self.send_discord_alert("Auto-Scheduler Upload Complete")
+
+        # Write to log files
+        if source == "manual":
+            self.manual_logger.info(text)
+        elif source == "auto":
+            self.auto_logger.info(text)
+        else: # system messages go to both just in case
+            self.manual_logger.info(text)
+            self.auto_logger.info(text)
+
+        # Legacy crash logger
         try:
-            import datetime
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             with open("app_crash_log.txt", "a", encoding="utf-8") as f:
                 f.write(f"[{timestamp}] {text}\n")
         except Exception:
@@ -693,6 +809,7 @@ class ClipGenApp(ctk.CTk):
         self.config['settings']['vr_stabilization'] = self.stabilize_switch.get() == 1
         self.config['settings']['hardware_encoding'] = self.hardware_switch.get() == 1
         self.config['settings']['audio_downmix'] = self.downmix_switch.get() == 1
+        self.config['settings']['audio_peak_detection'] = self.audio_peak_switch.get() == 1
         self.config['settings']['vertical_export'] = self.vertical_switch.get() == 1
         self.config['settings']['vertical_mode'] = self.vertical_mode_menu.get()
         self.config['settings']['crop_x'] = self.crop_x_entry.get()
@@ -712,21 +829,49 @@ class ClipGenApp(ctk.CTk):
         if not clips_dir or not os.path.exists(clips_dir):
             return
 
+        self.marked_for_deletion = {}
         mp4_files = [f for f in os.listdir(clips_dir) if f.endswith(".mp4")]
         for file in mp4_files:
-            thumb_name = file.replace("_vertical.mp4", ".mp4").replace(".mp4", ".jpg")
-            thumb_path = os.path.join(clips_dir, thumb_name)
-            clip_img = None
-            if os.path.exists(thumb_path):
-                try:
-                    pil_img = Image.open(thumb_path)
-                    clip_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(64, 36))
-                except:
-                    pass
+            row_frame = ctk.CTkFrame(self.clip_listbox, fg_color="transparent")
+            row_frame.pack(fill="x", pady=2, padx=5)
+            
+            self.marked_for_deletion[file] = ctk.BooleanVar(value=False)
+            checkbox = ctk.CTkCheckBox(row_frame, text="", variable=self.marked_for_deletion[file], width=20)
+            checkbox.pack(side="left", padx=(0, 5))
 
-            btn = ctk.CTkButton(self.clip_listbox, text=file, image=clip_img, compound="left", fg_color="#2b2b2b", hover_color="#3b3b3b", anchor="w", 
+            btn = ctk.CTkButton(row_frame, text=file, fg_color="#2b2b2b", hover_color="#3b3b3b", anchor="w", 
                                 command=lambda f=file: self.load_clip_details(f, clips_dir))
-            btn.pack(fill="x", pady=2, padx=5)
+            btn.pack(side="left", fill="x", expand=True)
+
+    def confirm_delete_marked(self):
+        files_to_delete = [f for f, var in getattr(self, 'marked_for_deletion', {}).items() if var.get()]
+        if not files_to_delete:
+            return
+            
+        from tkinter import messagebox
+        confirm = messagebox.askyesno("Confirm Deletion", f"Are you sure you want to delete {len(files_to_delete)} marked clip(s)?\n\nThis will also delete the associated .jpg and .json metadata files.")
+        if confirm:
+            clips_dir = self.config.get('settings', {}).get('clips_dir', '')
+            for f in files_to_delete:
+                mp4_path = os.path.join(clips_dir, f)
+                json_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json"))
+                jpg_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".jpg"))
+                
+                for p in [mp4_path, json_path, jpg_path]:
+                    if os.path.exists(p):
+                        try:
+                            os.remove(p)
+                        except Exception as e:
+                            self.log_to_console(f"❌ Failed to delete {p}: {e}", source="system")
+            
+            self.populate_gallery()
+            self.detail_title.configure(text="Select a clip to view details")
+            self.detail_score.configure(text="Score: --/10")
+            self.detail_reasoning.configure(state="normal")
+            self.detail_reasoning.delete("1.0", "end")
+            self.detail_reasoning.configure(state="disabled")
+            self.detail_thumbnail.configure(image=None) # type: ignore
+            self.play_clip_btn.configure(state="disabled")
 
     def load_clip_details(self, filename, directory):
         self.detail_title.configure(text=filename)
@@ -754,6 +899,24 @@ class ClipGenApp(ctk.CTk):
             self.detail_reasoning.insert("1.0", "No AI metadata found for this clip (might be an older generation).")
 
         self.detail_reasoning.configure(state="disabled")
+        
+        # Load large thumbnail
+        thumb_name = filename.replace("_vertical.mp4", ".mp4").replace(".mp4", ".jpg")
+        thumb_path = os.path.join(directory, thumb_name)
+        if os.path.exists(thumb_path):
+            try:
+                pil_img = Image.open(thumb_path)
+                # Calculate size to fit well (e.g. max width 600, or let CTkImage handle it)
+                width, height = pil_img.size
+                ratio = min(600 / width, 300 / height)
+                new_w, new_h = int(width * ratio), int(height * ratio)
+                large_clip_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(new_w, new_h))
+                self.detail_thumbnail.configure(image=large_clip_img)
+            except Exception:
+                self.detail_thumbnail.configure(image=None) # type: ignore
+        else:
+            self.detail_thumbnail.configure(image=None) # type: ignore
+
         if hasattr(os, 'startfile'):
             self.play_clip_btn.configure(state="normal", command=lambda: os.startfile(mp4_path)) # type: ignore
 
@@ -770,7 +933,7 @@ class ClipGenApp(ctk.CTk):
     def cancel_manual_process(self):
         self.cancel_requested = True
         self.cancel_btn.configure(state="disabled", text="Cancelling...")
-        self.log_to_console("🛑 Cancellation requested. Aborting as soon as possible...")
+        self.log_to_console("🛑 Cancellation requested. Aborting as soon as possible...", source="manual")
 
     def start_manual_process(self):
         input_val = self.url_input.get().strip()
@@ -795,34 +958,35 @@ class ClipGenApp(ctk.CTk):
                 if self.cancel_requested: break
                 
                 if len(queue) > 1:
-                    self.log_to_console(f"\n📦 BATCH PROCESS: Starting item {index + 1} of {len(queue)}...")
+                    self.log_to_console(f"\n📦 BATCH PROCESS: Starting item {index + 1} of {len(queue)}...", source="manual")
 
                 if os.path.exists(item):
-                    self.log_to_console(f"📁 Local file detected: {item}")
-                    editor.process_video(item, prompt_profile=profile, logger=self.log_to_console, is_cancelled=lambda: self.cancel_requested)
+                    self.log_to_console(f"📁 Local file detected: {item}", source="manual")
+                    editor.process_video(item, prompt_profile=profile, logger=lambda msg: self.log_to_console(msg, source="manual"), is_cancelled=lambda: self.cancel_requested)
                     
                 elif item.startswith("http") or "twitch.tv" in item or "youtu" in item:
-                    self.log_to_console(f"🌐 URL detected: {item}")
+                    self.log_to_console(f"🌐 URL detected: {item}", source="manual")
                     v_id = self.get_video_id(item)
                     if not v_id:
-                        self.log_to_console("❌ Video ID error. Skipping.")
+                        self.log_to_console("❌ Video ID error. Skipping.", source="manual")
                         continue
-                    f_path = watcher.download_with_subprocess(item, v_id, logger_callback=self.log_to_console, force_manual=True, is_cancelled=lambda: self.cancel_requested)
+                    f_path = watcher.download_with_subprocess(item, v_id, logger_callback=lambda msg: self.log_to_console(msg, source="manual"), force_manual=True, is_cancelled=lambda: self.cancel_requested)
                     if self.cancel_requested: break
                     if f_path:
-                        editor.process_video(f_path, prompt_profile=profile, logger=self.log_to_console, is_cancelled=lambda: self.cancel_requested)
+                        editor.process_video(f_path, prompt_profile=profile, logger=lambda msg: self.log_to_console(msg, source="manual"), is_cancelled=lambda: self.cancel_requested)
                 else:
-                    self.log_to_console(f"❌ Invalid input: {item}")
+                    self.log_to_console(f"❌ Invalid input: {item}", source="manual")
 
             if self.cancel_requested:
-                self.log_to_console("🛑 Process aborted by user.")
+                self.log_to_console("🛑 Process aborted by user.", source="manual")
             else:
-                self.log_to_console("🏁 ALL TASKS COMPLETE!")
+                self.log_to_console("🏁 ALL TASKS COMPLETE!", source="manual")
+                self.send_discord_alert("Manual Queue Finished")
                 self.after(0, lambda: self.process_btn.configure(text="✅ Complete!", fg_color="#27ae60"))
                 self.after(3000, lambda: self.process_btn.configure(text="Process Queue", fg_color=["#3a7ebf", "#1f538d"]))
                 
         except Exception as e:
-            self.log_to_console(f"❌ Error: {e}")
+            self.log_to_console(f"❌ Error: {e}", source="manual")
         finally:
             self.after(0, lambda: [
                 self.process_btn.configure(state="normal"), 
@@ -848,18 +1012,18 @@ class ClipGenApp(ctk.CTk):
             self.is_auto_running = True
             self.auto_status.configure(text="● Status: RUNNING", text_color="#2ecc71")
             self.auto_progress.start()
-            self.log_to_console("📡 Auto-Scheduler enabled. Saving config and monitoring channels...")
+            self.log_to_console("📡 Auto-Scheduler enabled. Saving config and monitoring channels...", source="auto")
             threading.Thread(target=self._auto_run_loop, daemon=True).start()
         else:
             self.is_auto_running = False
             self.auto_status.configure(text="● Status: OFF", text_color="gray")
             self.auto_progress.stop()
             self.auto_progress.set(0)
-            self.log_to_console("🛑 Auto-Scheduler disabled.")
+            self.log_to_console("🛑 Auto-Scheduler disabled.", source="auto")
 
     def _auto_run_loop(self):
         while self.is_auto_running:
-            watcher.main(logger_callback=self.log_to_console)
+            watcher.main(logger_callback=lambda msg: self.log_to_console(msg, source="auto"))
             for _ in range(14400):
                 if not self.is_auto_running: break
                 time.sleep(1)

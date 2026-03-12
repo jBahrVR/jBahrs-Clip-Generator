@@ -35,6 +35,9 @@ def get_default_config():
         "google": {
             "api_key": ""
         },
+        "integrations": {
+            "discord_webhook": ""
+        },
         "settings": {
             "download_quality": "Best", 
             "download_dir": "", 
@@ -48,7 +51,8 @@ def get_default_config():
             "crop_w": "400",
             "crop_h": "225",
             "hardware_encoding": False,
-            "audio_downmix": True
+            "audio_downmix": True,
+            "audio_peak_detection": False
         },
         "prompts": {
             "active_profile": "Omni-Genre Broad Net", 
@@ -109,12 +113,14 @@ def load_config():
             settings = cfg.setdefault("settings", {})
             settings.setdefault("hardware_encoding", False)
             settings.setdefault("audio_downmix", True)
+            settings.setdefault("audio_peak_detection", False)
             
             openai_cfg = cfg.setdefault("openai", {})
             openai_cfg.setdefault("base_url", "")
             
             cfg.setdefault("anthropic", {"api_key": ""})
             cfg.setdefault("xai", {"api_key": ""})
+            cfg.setdefault("integrations", {"discord_webhook": ""})
             
             # MIGRATION UPDATE: Force update the default Omni-Genre prompt if they have the old version
             prompts = cfg.setdefault("prompts", {})
