@@ -15,8 +15,8 @@ I am not a developer, I have entirely "Vibe Coded" this app as I was not finding
 Get up and running in 4 easy steps!
 1. **Install the Application:** Run the `setup.exe` file to install the Clip Generator to your system.
 2. **Install Prerequisites:** Ensure `ffmpeg.exe`, `ffprobe.exe`, `yt-dlp.exe`, and `deno.exe` are in the exact same folder as the app executable.
-3. **Add an API Key:** Go to the **Settings** tab and paste in a valid API Key (see "API Limits & Recommendations" below) and click **Save Settings**.
-4. **Queue a Video:** Go to the **Manual Clipper** tab, paste a VOD link (or select a local `.mp4`), and click **Process Queue**. You're done!
+3. **Add an API Key:** Go to the **Settings** tab and paste in a valid API Key (see "API Limits & Recommendations" below). Make sure to choose the API Chat Model in the dropdown and click **Save Settings**.
+4. **Queue a Video:** Go to the **Manual Clipper** tab, paste a VOD link (or select a local `.mp4`), and click **Process Queue**. Let it run and see if it finds some clips!
 
 ---
 
