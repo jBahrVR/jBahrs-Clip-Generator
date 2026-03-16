@@ -3,6 +3,8 @@ import json
 import subprocess
 import torch # type: ignore
 import whisper # type: ignore
+import config_manager # type: ignore
+from openai import OpenAI # type: ignore
 import numpy as np # type: ignore
 import sys
 import io
@@ -41,9 +43,13 @@ try:
 except ImportError:
     HAS_ANTHROPIC = False
 
-def analyze_audio_peaks(audio_array, segments, sample_rate=16000):
-    """Calculates RMS loudness for each Whisper segment and appends it to the text."""
+def analyze_audio_peaks(audio_array, segments, sample_rate=16000, peak_detection=True, combat_detection=True):
+    """Calculates RMS loudness and detects combat transients for each Whisper segment."""
     enhanced_segments = []
+    
+    # Heuristic for Combat: Look for rapid spikes (transients)
+    # Gunshots are typically sharp spikes that rise > 4x above the local RMS within 10ms.
+    
     for seg in segments:
         start_idx = int(seg['start'] * sample_rate)
         end_idx = int(seg['end'] * sample_rate)
@@ -52,16 +58,47 @@ def analyze_audio_peaks(audio_array, segments, sample_rate=16000):
         start_idx = max(0, min(start_idx, len(audio_array) - 1))
         end_idx = max(start_idx + 1, min(end_idx, len(audio_array)))
         
-        # Calculate RMS for this chunk
         chunk = audio_array[start_idx:end_idx]
-        if len(chunk) > 0:
+        if len(chunk) == 0:
+            enhanced_segments.append(seg)
+            continue
+
+        prefix_tags = []
+
+        # 1. Loudness Analysis
+        loudness = 0
+        if peak_detection:
             rms = np.sqrt(np.mean(chunk**2))
-            # Convert subtle RMS (0 to 1.0) into a more aggressive "0-100%" loudness score
             loudness = min(100, int((rms / 0.1) * 100))
-        else:
-            loudness = 0
+            prefix_tags.append(f"[LOUDNESS: {loudness}%]")
+
+        # 2. Combat Analysis (Transient Detection)
+        if combat_detection and len(chunk) > 160: # At least 10ms
+            # Divide chunk into 10ms windows
+            window_size = 160 # 10ms @ 16khz
+            num_windows = len(chunk) // window_size
             
-        enhanced_text = f"[LOUDNESS: {loudness}%] {seg['text'].strip()}"
+            if num_windows > 0:
+                transient_count = 0
+                # Calculate global RMS for this segment to use as base
+                seg_rms = np.sqrt(np.mean(chunk**2)) + 0.001
+                
+                # Reshape into windows and find peak per window
+                windows = chunk[:num_windows*window_size].reshape(-1, window_size)
+                peaks = np.max(np.abs(windows), axis=1)
+                
+                # A "transient" is a peak that is significantly higher than the segment average
+                # and exceeds a minimum absolute threshold (to avoid noise)
+                transients = (peaks > (seg_rms * 4.5)) & (peaks > 0.15)
+                transient_count = np.sum(transients)
+                
+                # If we see > 1.5 transients per second, it's likely combat/gunfire
+                duration = seg['end'] - seg['start']
+                if duration > 0 and (transient_count / duration) >= 1.5:
+                    prefix_tags.append("[ACTION: COMBAT]")
+
+        tag_str = " ".join(prefix_tags)
+        enhanced_text = f"{tag_str} {seg['text'].strip()}" if tag_str else seg['text'].strip()
         
         new_seg = seg.copy()
         new_seg['text'] = enhanced_text
@@ -316,11 +353,12 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
 
     if is_cancelled and is_cancelled(): return
 
-    audio_peak_detection = config.get("settings", {}).get("audio_peak_detection", False)
+    audio_peak_detection = config.get("settings", {}).get("audio_peak_detection", True)
+    combat_detection = config.get("settings", {}).get("combat_detection", True)
 
     if logger:
-        if audio_peak_detection:
-            logger("🎙️ Transcribing audio and measuring peak levels (this may take a while)...")
+        if audio_peak_detection or combat_detection:
+            logger("🎙️ Transcribing audio and analyzing patterns (Loudness/Combat)...")
         else:
             logger("🎙️ Transcribing audio...")
             
@@ -334,9 +372,9 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
             
         raw_segments = result.get("segments", [])
         
-        if audio_peak_detection:
-            segments = analyze_audio_peaks(audio_array, raw_segments)
-            if logger: logger("✅ Transcription complete! Peak volumes measured.")
+        if audio_peak_detection or combat_detection:
+            segments = analyze_audio_peaks(audio_array, raw_segments, peak_detection=audio_peak_detection, combat_detection=combat_detection)
+            if logger: logger("✅ Transcription complete! Audio patterns analyzed.")
         else:
             segments = raw_segments
             if logger: logger("✅ Transcription complete!")

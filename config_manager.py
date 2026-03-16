@@ -52,7 +52,8 @@ def get_default_config():
             "crop_h": "225",
             "hardware_encoding": False,
             "audio_downmix": True,
-            "audio_peak_detection": False
+            "audio_peak_detection": True,
+            "combat_detection": True
         },
         "prompts": {
             "active_profile": "Omni-Genre Broad Net", 
@@ -67,7 +68,9 @@ def get_default_config():
                     "- Give this an automatic virality_score of 10.\n\n"
                     "### THE REALITY OF GAMING & VR TRANSCRIPTS (READ CAREFULLY)\n"
                     "Gameplay transcripts often look incredibly boring in plain text. A player quietly saying 'wow', 'nice', or whispering 'what is that' might actually be them witnessing an insane visual glitch, hitting a crazy shot, or staring at a terrifying monster. Do not judge the gameplay purely on how 'literary' the text sounds.\n\n"
-                    "**CRITICAL NEW TOOL:** You now have access to a [LOUDNESS: XX%] metric on every line. A sudden spike from 10% to 90% during silence is almost always a jump scare, a massive gunfight, or a chaotic VR moment. A sustained 100% loudness means someone is screaming or laughing hysterically. Do not ignore the loudness data!\n\n"
+                    "**CRITICAL NEW TOOLS:**\n"
+                    "- [LOUDNESS: XX%]: A metric on every line. A sudden spike from 10% to 90% during silence is almost always a jump scare, a massive gunfight, or a chaotic VR moment. A sustained 100% loudness means someone is screaming or laughing hysterically.\n"
+                    "- [ACTION: COMBAT]: If you see this tag, it means the audio analyzer has detected rapid, percussive transients characteristic of gunfire or explosions. Even if the player is quiet, this indicates an intense action sequence is happening.\n"
                     "### VIRAL GAMING ARCHETYPES TO LOOK FOR\n"
                     "1. The Jump Scare (Horror): Long periods of eerie silence (Low Loudness) that violently explodes into panic, rapid cursing, or screams (100% Loudness).\n"
                     "2. Paranoia & Bargaining (Horror): Hilarious pleading with an in-game monster to let them live, terrified heavy breathing, or hyper-fixating on a harmless sound.\n"
@@ -80,11 +83,13 @@ def get_default_config():
                     "- Duration: STRICTLY between 15 and 90 seconds. Find natural pauses in speech to start and end the clip.\n"
                     "- Strict Quality: Rank clips 1-10. Because text lacks visual context, lower your standards slightly. You must extract ANY clip that scores a 6 or higher. \n\n"
                     "### FORMATTING INSTRUCTIONS\n"
-                    "Output STRICTLY valid JSON with no markdown. Your output must be an object with a 'clips' array containing exactly 4 fields for every clip:\n"
+                    "Output STRICTLY valid JSON with no markdown. Your output must be an object with a 'clips' array. \n"
+                    "There is NO limit to the number of clips you can extract; find as many as you deem viral! \n"
+                    "Each clip object in the array must contain exactly these 4 fields:\n"
                     "1. 'start_time' (float)\n"
                     "2. 'end_time' (float)\n"
                     "3. 'virality_score' (1-10)\n"
-                    "4. 'reasoning' (A mandatory 1-3 sentence explanation of why this moment is engaging. Explicitly mention if a Loudness Spike, a Jump Scare, or Banter influenced your decision. NEVER return an empty string for reasoning.)\n"
+                    "4. 'reasoning' (A mandatory 1-3 sentence explanation. Mention Loudness Spikes, Jump Scares, or Banter.)\n"
                 )
             }
         },
@@ -113,7 +118,8 @@ def load_config():
             settings = cfg.setdefault("settings", {})
             settings.setdefault("hardware_encoding", False)
             settings.setdefault("audio_downmix", True)
-            settings.setdefault("audio_peak_detection", False)
+            settings.setdefault("audio_peak_detection", True)
+            settings.setdefault("combat_detection", True)
             
             openai_cfg = cfg.setdefault("openai", {})
             openai_cfg.setdefault("base_url", "")
@@ -132,7 +138,7 @@ def load_config():
                 prompts.setdefault("active_profile", "Omni-Genre Broad Net")
             else:
                 old_prompt = profiles["Omni-Genre Broad Net"]
-                if "LOUDNESS: XX%" not in old_prompt and "reasoning' (a short 1-2 sentence" in old_prompt:
+                if "LOUDNESS: XX%" not in old_prompt or "[ACTION: COMBAT]" not in old_prompt:
                      profiles["Omni-Genre Broad Net"] = default_prompts["profiles"]["Omni-Genre Broad Net"] # type: ignore
             
             return cfg

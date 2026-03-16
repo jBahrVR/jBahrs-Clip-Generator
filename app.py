@@ -86,7 +86,7 @@ class ClipGenApp(ctk.CTk):
         self.discord_btn = ctk.CTkButton(self.sidebar_frame, text="💬 Join Discord", fg_color="#5865F2", hover_color="#4752C4", command=lambda: webbrowser.open("https://discord.gg/uUF8J9Zqwz"))
         self.discord_btn.grid(row=12, column=0, padx=20, pady=(5, 5), sticky="ew")
 
-        self.version_label = ctk.CTkLabel(self.sidebar_frame, text="v1.1.6 Creator Edition", font=ctk.CTkFont(size=10), text_color="gray")
+        self.version_label = ctk.CTkLabel(self.sidebar_frame, text="v1.2.0 Creator Edition", font=ctk.CTkFont(size=10), text_color="gray")
         self.version_label.grid(row=13, column=0, padx=20, pady=10, sticky="s")
 
         # ==================== MANUAL FRAME ====================
@@ -364,24 +364,27 @@ class ClipGenApp(ctk.CTk):
         self.downmix_switch = ctk.CTkSwitch(self.proc_card, text="Downmix Multi-Track Audio (OBS)", font=ctk.CTkFont(weight="bold"))
         self.downmix_switch.grid(row=2, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
-        self.audio_peak_switch = ctk.CTkSwitch(self.proc_card, text="Measure Audio Peak Levels (Slow)", font=ctk.CTkFont(weight="bold"))
+        self.audio_peak_switch = ctk.CTkSwitch(self.proc_card, text="Measure Audio Peak Levels", font=ctk.CTkFont(weight="bold"))
         self.audio_peak_switch.grid(row=3, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
+        self.combat_switch = ctk.CTkSwitch(self.proc_card, text="AI Combat Detection (Gunfights/Action)", font=ctk.CTkFont(weight="bold"))
+        self.combat_switch.grid(row=4, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+
         self.stabilize_switch = ctk.CTkSwitch(self.proc_card, text="Apply VR Anti-Shake Filter (Experimental/Slow)", font=ctk.CTkFont(weight="bold"))
-        self.stabilize_switch.grid(row=4, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
+        self.stabilize_switch.grid(row=5, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
         self.vertical_switch = ctk.CTkSwitch(self.proc_card, text="Generate Vertical Shorts (9:16)", font=ctk.CTkFont(weight="bold"))
-        self.vertical_switch.grid(row=5, column=0, padx=20, pady=(15, 5), sticky="w")
+        self.vertical_switch.grid(row=6, column=0, padx=20, pady=(15, 5), sticky="w")
         
         self.vertical_mode_menu = ctk.CTkOptionMenu(
             self.proc_card, 
             values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Facecam Bottom-Left", "Facecam Bottom-Right", "Custom Coordinates"],
             height=35
         )
-        self.vertical_mode_menu.grid(row=5, column=1, columnspan=2, padx=(0, 20), pady=(15, 5), sticky="w")
+        self.vertical_mode_menu.grid(row=6, column=1, columnspan=2, padx=(0, 20), pady=(15, 5), sticky="w")
 
         self.coord_frame = ctk.CTkFrame(self.proc_card, fg_color="transparent")
-        self.coord_frame.grid(row=6, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
+        self.coord_frame.grid(row=7, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
         
         ctk.CTkLabel(self.coord_frame, text="X:").pack(side="left", padx=(0, 5))
         self.crop_x_entry = ctk.CTkEntry(self.coord_frame, width=50)
@@ -410,8 +413,11 @@ class ClipGenApp(ctk.CTk):
         if settings_cfg.get('audio_downmix', True): self.downmix_switch.select()
         else: self.downmix_switch.deselect()
 
-        if settings_cfg.get('audio_peak_detection', False): self.audio_peak_switch.select()
+        if settings_cfg.get('audio_peak_detection', True): self.audio_peak_switch.select()
         else: self.audio_peak_switch.deselect()
+
+        if settings_cfg.get('combat_detection', True): self.combat_switch.select()
+        else: self.combat_switch.deselect()
 
         if settings_cfg.get('vertical_export', False): self.vertical_switch.select()
         else: self.vertical_switch.deselect()
@@ -440,22 +446,33 @@ class ClipGenApp(ctk.CTk):
         # ==================== GALLERY FRAME ====================
         self.gallery_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.gallery_frame.grid_columnconfigure(1, weight=1)
-        self.gallery_frame.grid_rowconfigure(1, weight=1)
+        self.gallery_frame.grid_rowconfigure(2, weight=1)
 
         self.gallery_title = ctk.CTkLabel(self.gallery_frame, text="Clip Gallery & Reasoning", font=ctk.CTkFont(size=28, weight="bold"))
         self.gallery_title.grid(row=0, column=0, columnspan=2, padx=30, pady=(30, 10), sticky="w")
 
         self.clip_listbox = ctk.CTkScrollableFrame(self.gallery_frame, width=300, corner_radius=15)
-        self.clip_listbox.grid(row=1, column=0, padx=(30, 10), pady=10, sticky="nsew")
+        self.clip_listbox.grid(row=2, column=0, padx=(30, 10), pady=10, sticky="nsew")
         
+        self.sort_frame = ctk.CTkFrame(self.gallery_frame, fg_color="transparent")
+        self.sort_frame.grid(row=1, column=0, padx=(30, 10), pady=(0, 5), sticky="ew")
+        
+        self.sort_label = ctk.CTkLabel(self.sort_frame, text="Sort by:", font=ctk.CTkFont(size=12))
+        self.sort_label.pack(side="left", padx=(0, 5))
+        
+        self.sort_menu = ctk.CTkOptionMenu(self.sort_frame, values=["Date (Newest)", "Date (Oldest)", "Virality (High)", "Virality (Low)"], 
+                                           command=lambda _: self.populate_gallery())
+        self.sort_menu.pack(side="left", fill="x", expand=True)
+        self.sort_menu.set("Date (Newest)")
+
         self.refresh_gallery_btn = ctk.CTkButton(self.gallery_frame, text="🔄 Refresh List", command=self.populate_gallery)
-        self.refresh_gallery_btn.grid(row=2, column=0, padx=(30, 10), pady=(0, 10), sticky="ew")
+        self.refresh_gallery_btn.grid(row=3, column=0, padx=(30, 10), pady=(0, 10), sticky="ew")
 
         self.delete_marked_btn = ctk.CTkButton(self.gallery_frame, text="🗑️ Delete Marked Clips", fg_color="#c0392b", hover_color="#922b21", command=self.confirm_delete_marked)
-        self.delete_marked_btn.grid(row=3, column=0, padx=(30, 10), pady=(0, 20), sticky="ew")
+        self.delete_marked_btn.grid(row=4, column=0, padx=(30, 10), pady=(0, 20), sticky="ew")
 
         self.details_card = ctk.CTkFrame(self.gallery_frame, corner_radius=15)
-        self.details_card.grid(row=1, column=1, rowspan=3, padx=(10, 30), pady=(10, 20), sticky="nsew")
+        self.details_card.grid(row=1, column=1, rowspan=4, padx=(10, 30), pady=(10, 20), sticky="nsew")
         self.details_card.grid_columnconfigure(0, weight=1)
 
         self.detail_title = ctk.CTkLabel(self.details_card, text="Select a clip to view details", font=ctk.CTkFont(size=20, weight="bold"))
@@ -810,6 +827,7 @@ class ClipGenApp(ctk.CTk):
         self.config['settings']['hardware_encoding'] = self.hardware_switch.get() == 1
         self.config['settings']['audio_downmix'] = self.downmix_switch.get() == 1
         self.config['settings']['audio_peak_detection'] = self.audio_peak_switch.get() == 1
+        self.config['settings']['combat_detection'] = self.combat_switch.get() == 1
         self.config['settings']['vertical_export'] = self.vertical_switch.get() == 1
         self.config['settings']['vertical_mode'] = self.vertical_mode_menu.get()
         self.config['settings']['crop_x'] = self.crop_x_entry.get()
@@ -829,9 +847,46 @@ class ClipGenApp(ctk.CTk):
         if not clips_dir or not os.path.exists(clips_dir):
             return
 
+        sort_mode = self.sort_menu.get()
         self.marked_for_deletion = {}
-        mp4_files = [f for f in os.listdir(clips_dir) if f.endswith(".mp4")]
-        for file in mp4_files:
+        
+        # Gather file data for sorting
+        clip_data = []
+        for f in os.listdir(clips_dir):
+            if f.endswith(".mp4"):
+                full_path = os.path.join(clips_dir, f)
+                ctime = os.path.getctime(full_path)
+                
+                score = 0
+                # Try to get virality score from JSON if sorting by it
+                if "Virality" in sort_mode:
+                    json_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json"))
+                    if os.path.exists(json_path):
+                        try:
+                            with open(json_path, 'r', encoding='utf-8') as jf:
+                                jdata = json.load(jf)
+                                score = float(jdata.get("virality_score", 0))
+                        except:
+                            pass
+                
+                clip_data.append({
+                    "filename": f,
+                    "ctime": ctime,
+                    "score": score
+                })
+
+        # Apply sorting
+        if sort_mode == "Date (Newest)":
+            clip_data.sort(key=lambda x: x["ctime"], reverse=True)
+        elif sort_mode == "Date (Oldest)":
+            clip_data.sort(key=lambda x: x["ctime"])
+        elif sort_mode == "Virality (High)":
+            clip_data.sort(key=lambda x: (x["score"], x["ctime"]), reverse=True)
+        elif sort_mode == "Virality (Low)":
+            clip_data.sort(key=lambda x: (x["score"], -x["ctime"]))
+
+        for item in clip_data:
+            file = item["filename"]
             row_frame = ctk.CTkFrame(self.clip_listbox, fg_color="transparent")
             row_frame.pack(fill="x", pady=2, padx=5)
             
