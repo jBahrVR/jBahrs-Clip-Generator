@@ -2,7 +2,7 @@ import os
 import json
 import shutil
 
-def get_config_path():
+def get_app_data_path():
     app_data = os.getenv('APPDATA')
     if not app_data:
         app_data = "."
@@ -10,8 +10,10 @@ def get_config_path():
     
     if not os.path.exists(config_dir):
         os.makedirs(config_dir)
-        
-    return os.path.join(config_dir, "config.json")
+    return config_dir
+
+def get_config_path():
+    return os.path.join(get_app_data_path(), "config.json")
 
 CONFIG_FILE = get_config_path()
 OLD_LOCAL_CONFIG = "config.json"

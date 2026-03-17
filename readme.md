@@ -20,23 +20,27 @@ Get up and running in 4 easy steps!
 
 ---
 
-## ✨ Key Features
+## ✨ Key Features (v1.2.0)
 
-* **Audio Peak Detection (RMS Loudness Mapping):** Intercepts raw audio arrays to calculate RMS loudness, mapping chaotic peaks (`[LOUDNESS: 100%]`) alongside transcriptions so the AI can physically "hear" jump scares and screaming. (Built for VR!).
-* **Huge Context AI Analysis (No Chunking!):** Supports modern LLMs with massive context windows (up to 2 Million tokens!). The AI analyzes your *entire* 4+ hour VOD in a single prompt, meaning it understands running jokes from the beginning to the end of the stream without hallucinating.
+* **Combat & High-Intensity Detection (New!):** Analyzes local audio arrays for percussive transients (gunshots, explosions) and tags `[ACTION: COMBAT]` in the transcript so the AI knows exactly where the heat is—even if you're playing silently.
+* **Audio Peak Detection (RMS Loudness Mapping):** Calculates RMS loudness for every segment, mapping chaotic peaks (`[LOUDNESS: 100%]`) so the AI can physically "hear" jump scares and screaming. (Built for VR/Horror!).
+* **Huge Context AI Analysis (No Chunking!):** Supports modern LLMs with massive context windows (up to 2 Million tokens!). The AI analyzes your *entire* 4+ hour VOD in a single prompt for maximum coherence.
 * **Agnostic AI Engine:** Choose your brain! Natively connects to:
-  * **Anthropic** (`claude-sonnet-4-6`, `claude-haiku`)
+  * **Anthropic** (`claude-3-5-sonnet`)
   * **xAI** (`grok-2-latest`)
-  * **Google Gemini** (`gemini-2.5-pro`)
+  * **Google Gemini** (Optimized for `gemini-1.5-pro` & `gemini-1.5-flash`)
   * **OpenAI** (`gpt-4o`)
   * **DeepSeek & Llama** (via Custom Base URLs / OpenRouter!)
-* **Clip Gallery, Thumbnails & AI Reasoning:** Review your generated clips directly inside the app! The gallery generates `.jpg` thumbnails and displays a Virality Score with a written explanation from the AI detailing exactly why it extracted that specific moment.
+* **Advanced Clip Gallery:** Review your generated clips directly inside the app! Includes:
+  * **Dynamic Sorting:** Sort your collection by **Created Date** or **AI Virality Score** to find your best content instantly.
+  * **AI Reasoning & Metadata:** View virality scores and written justifications from the AI detailing exactly why each moment was extracted.
+  * **Thumbnail Generation:** Automatically generates `.jpg` thumbnails for every clip.
 * **Vertical Auto-Cropper & VR Stabilization:** Converts horizontal gameplay into perfect 9:16 Shorts/TikToks. Toggle on the post-processing VR filter to automatically smooth out jarring head movements.
-* **Discord Webhook Alerts:** The app can automatically ping your private Discord server with a native alert when a batch of clips is successfully extracted!
-* **Multi-Track Audio Downmixing:** Automatically downmixes multi-track OBS setups (e.g., Game on Track 1, Mic on Track 2) into a single unified stereo track.
+* **Discord Webhook Alerts:** Automatically pings your private Discord server with a native alert when a batch of clips is successfully extracted.
+* **Multi-Track Audio Downmixing:** Automatically downmixes multi-track OBS setups (e.g., Game on Track 1, Mic on Track 2) into a single unified stereo track for Whisper transcription.
 * **GPU Hardware Encoding (NVENC/AMF):** Leverages your Nvidia or Radeon GPU to execute FFmpeg clipping filters, decimating render times. 
-* **100% Free Local Transcription:** Uses OpenAI's open-source `Whisper` model running entirely on your local Nvidia GPU (CUDA) to transcribe massive files in minutes without paying API fees, complete with a live UI progress tracker!
-* **The Auto-Scheduler:** Set it and forget it! The app silently runs in your system tray, checking YouTube or Twitch for new uploads, bypassing subscriber-only gates using your local browser cookies, and cutting clips in the background while you sleep.
+* **100% Free Local Transcription:** Uses OpenAI's open-source `Whisper` model running local on your GPU to transcribe massive files in minutes without API fees.
+* **The Auto-Scheduler:** Set it and forget it! The app silently runs in your system tray, checking YouTube or Twitch for new uploads and cutting clips while you sleep.
 
 ---
 
@@ -55,47 +59,37 @@ To power the "Editor" brain of the app, you will need an API key from at least o
 If you are running the compiled Windows executable, the core AI libraries are pre-packaged! However, the app relies on four external open-source tools to handle downloading, cutting, and backend routing.
 
 **You MUST place the executable files for these tools in the same folder as your Clip Generator app:**
-1.  **FFmpeg & FFprobe:** The engines that physically cut and restack the `.mp4` files. Visit the official FFmpeg homepage to track down the latest Windows build.
-2.  **yt-dlp:** The engine that downloads the VODs from YouTube and Twitch. Locate the yt-dlp GitHub Repository and navigate to their releases page.
-3.  **Deno:** The secure JavaScript runtime required to execute the app's background logic. Visit the Deno homepage for installation instructions.
+1.  **FFmpeg & FFprobe:** The engines that physically cut and restack the `.mp4` files.
+2.  **yt-dlp:** The engine that downloads the VODs from YouTube and Twitch.
+3.  **Deno:** Required to execute the app's background logic.
 
 ---
 
 ## 🚀 How to Use
 
-### 1. Configuration (The First Run)
+### 1. Configuration
 1. Open the app and navigate to the **Settings** tab.
 2. Enter your **YouTube Channel ID** and/or **Twitch Username**.
-3. Paste an API key into the Auth card (Anthropic, Grok, Gemini, or OpenAI) and click **"Test Key"** to verify it.
-4. If you have a private discord server, you can paste in a **Discord Webhook URL** to receive push notifications when VODs finish processing!
-5. Set your **Raw VODs** and **Generated Clips** folders.
-6. Configure your **Vertical Export Settings** to match your OBS layout.
-7. Click **Save Settings**.
+3. Paste an API key into the Auth card and click **"Test Key"** to verify it.
+4. Set your **Raw VODs** and **Generated Clips** folders.
+5. (Optional) Paste in a **Discord Webhook URL** to receive push notifications!
+6. Click **Save Settings**.
 
-### 2. Customizing AI Prompts (Important!)
-You can tell the AI exactly what kind of content to look for! The app provides a "Default VR" profile, but you can build your own parameters in the **Prompts** tab.
+### 2. Customizing AI Prompts
+The app provides an optimized "Omni-Genre" profile that supports loudness mapping and combat detection. We have fine-tuned our default prompts to remove extraction biases, ensuring as many viral moments are captured as possible. You can create your own custom prompt profiles in the **Prompts** tab.
 
-**How the Default Prompt Works:**
-The default prompt instructs the AI to treat the provided transcript like a movie script. It looks for sudden volume spikes (using `[LOUDNESS: 95%]`), chaotic overlapping dialogue, or extended periods of silence followed by screaming. It specifically bypasses "mundane" dialogue to find natural viral archetypes (e.g. Rage, Jump Scares, Funny Banter).
-
-**Tips for Creating Custom Prompts:**
-If you create your own Prompt Profile, **you MUST ensure the AI formats its output as a raw JSON array**. The clipping system will break if the AI starts its response with "Here are your clips:" or formats it in markdown. 
-* Always include a strict formatting rule in your prompt, such as: `You must return ONLY a raw JSON array of objects. Do not include markdown formatting or markdown code blocks (e.g. no triple backticks). Just the raw json text.`
-* Ensure your prompt asks the AI to provide exact variable keys for `"start_time"` (in seconds), `"end_time"` (in seconds), `"description"`, `"title"`, and `"reasoning"`.
-
-### 3. Reviewing Clips
+### 3. Reviewing & Sorting Clips
 1. Navigate to the **🖼️ Clip Gallery** tab.
-2. View your newly generated clips alongside their visual thumbnails!
-3. Select any clip to view its AI Virality Score and read the AI's reasoning for why the clip is engaging.
-4. Click **▶️ Play Clip** to open the video in your native media player. 
-5. Want to bulk delete? Check the clips you don't want and hit **Delete Marked Clips** at the bottom!
+2. Use the **"Sort by"** dropdown to organize your clips by Date or Virality Score.
+3. Select any clip to view its AI Reasoning and Score.
+4. Click **▶️ Play Clip** to review your highlights.
+5. Use the checkboxes and **Delete Marked Clips** for easy cleanup.
 
 ### 4. The Auto-Scheduler
-Want to wake up to fresh clips?
 1. Go to the **Auto Scheduler** tab.
-2. Select your platform, lookback rules, and checking interval (e.g., "Every 4 Hours").
+2. Select your platform, lookback rules, and checking interval.
 3. Toggle the **Enable Watcher** switch.
-4. You can safely hit the "X" on the window. The app will minimize to your Windows System Tray and quietly monitor your channel in the background!
+4. You can safely hit the "X" on the window. The app will minimize to your Windows System Tray and monitor your channel in the background!
 
 ---
 
@@ -108,13 +102,10 @@ Want to talk VR content creation or share feature requests?
 
 ## 🐛 Troubleshooting & Logs
 
-If a download fails or the AI hits a snag, the app features persistent output logs to help you track down the issue.
-* **View Logs:** Navigate to the `logs/` folder inside your app directory to find `manual_processor.log` and `auto_scheduler.log`.
-* **Missing Progress?:** Ensure `yt-dlp.exe`, `ffmpeg.exe`, `ffprobe.exe`, and `deno.exe` are all physically sitting in your root app folder.
-* **Twitch Fails:** If the log shows a Twitch `403 Forbidden` error, ensure your selected Auth Browser is completely closed while the Auto-Scheduler is running so the app can successfully access your session cookies.
-* **Missing Audio:** Ensure your downloaded VOD or local OBS file actually contains an active audio track on Track 1. Whisper will gracefully exit if it detects zero spoken words.
+* **View Logs:** Navigate to `%APPDATA%\jBahrsClipGenerator\logs` to find your process logs, or click the **"View Crash Logs"** button in the app sidebar.
+* **Twitch Fails:** If the log shows a Twitch `403 Forbidden` error, ensure your selected Auth Browser is completely closed while the Auto-Scheduler is running.
 
 ---
 
 ### Contributing
-Pull requests are welcome! If you have a killer prompt profile for a specific gaming genre, feel free to submit it to the `config_manager.py` default list.
+Pull requests are welcome! 

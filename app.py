@@ -86,7 +86,7 @@ class ClipGenApp(ctk.CTk):
         self.discord_btn = ctk.CTkButton(self.sidebar_frame, text="💬 Join Discord", fg_color="#5865F2", hover_color="#4752C4", command=lambda: webbrowser.open("https://discord.gg/uUF8J9Zqwz"))
         self.discord_btn.grid(row=12, column=0, padx=20, pady=(5, 5), sticky="ew")
 
-        self.version_label = ctk.CTkLabel(self.sidebar_frame, text="v1.2.0 Creator Edition", font=ctk.CTkFont(size=10), text_color="gray")
+        self.version_label = ctk.CTkLabel(self.sidebar_frame, text="v1.2.1 Creator Edition", font=ctk.CTkFont(size=10), text_color="gray")
         self.version_label.grid(row=13, column=0, padx=20, pady=10, sticky="s")
 
         # ==================== MANUAL FRAME ====================
@@ -495,9 +495,8 @@ class ClipGenApp(ctk.CTk):
         self.load_prompt_data()
         self.show_manual_frame()
 
-    # --- API Testers ---
     def _init_logging(self):
-        log_dir = os.path.join(os.getcwd(), "logs")
+        log_dir = os.path.join(config_manager.get_app_data_path(), "logs")
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
 
@@ -673,7 +672,8 @@ class ClipGenApp(ctk.CTk):
 
         # Legacy crash logger
         try:
-            with open("app_crash_log.txt", "a", encoding="utf-8") as f:
+            crash_log_path = os.path.join(config_manager.get_app_data_path(), "app_crash_log.txt")
+            with open(crash_log_path, "a", encoding="utf-8") as f:
                 f.write(f"[{timestamp}] {text}\n")
         except Exception:
             pass
@@ -685,12 +685,13 @@ class ClipGenApp(ctk.CTk):
             entry_widget.insert(0, folder_selected)
 
     def open_logs(self):
-        log_path = os.path.abspath("app_crash_log.txt")
+        log_path = os.path.join(config_manager.get_app_data_path(), "app_crash_log.txt")
         if os.path.exists(log_path):
             subprocess.run(['explorer', '/select,', log_path])
         else:
+            app_data_path = config_manager.get_app_data_path()
             if hasattr(os, 'startfile'):
-                os.startfile(os.path.abspath(".")) # type: ignore
+                os.startfile(os.path.abspath(app_data_path)) # type: ignore
 
     def open_local_folder(self, key):
         path = self.config.get('settings', {}).get(key, "")
