@@ -590,6 +590,8 @@ class ClipGenApp(ctk.CTk):
         self.test_discord_btn.configure(text="Testing...", fg_color="#e67e22")
         def run_test():
             try:
+                if not url.startswith("https://discord.com/"):
+                    raise ValueError("Invalid Discord URL")
                 import urllib.request
                 import urllib.error
                 import json
@@ -611,6 +613,8 @@ class ClipGenApp(ctk.CTk):
         if not url: return
         def run_alert():
             try:
+                if not url.startswith("https://discord.com/"):
+                    return
                 import urllib.request
                 import json
                 payload = {
