@@ -65,10 +65,14 @@ def analyze_audio_peaks(audio_array, segments, sample_rate=16000, peak_detection
 
         prefix_tags = []
 
+        # Calculate global RMS once to use as base if needed
+        rms = None
+        if peak_detection or combat_detection:
+            rms = np.sqrt(np.mean(chunk**2))
+
         # 1. Loudness Analysis
         loudness = 0
         if peak_detection:
-            rms = np.sqrt(np.mean(chunk**2))
             loudness = min(100, int((rms / 0.1) * 100))
             prefix_tags.append(f"[LOUDNESS: {loudness}%]")
 
@@ -81,7 +85,7 @@ def analyze_audio_peaks(audio_array, segments, sample_rate=16000, peak_detection
             if num_windows > 0:
                 transient_count = 0
                 # Calculate global RMS for this segment to use as base
-                seg_rms = np.sqrt(np.mean(chunk**2)) + 0.001
+                seg_rms = rms + 0.001
                 
                 # Reshape into windows and find peak per window
                 windows = chunk[:num_windows*window_size].reshape(-1, window_size)
