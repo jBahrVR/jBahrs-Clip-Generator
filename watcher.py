@@ -54,6 +54,9 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
             logger_callback("🔍 Applying 'Livestreams Only' filter...")
         cmd.extend(["--match-filter", "live_status=?was_live"])
 
+    # Add the URL to the very end of the command
+    cmd.extend(["--", url])
+
     startupinfo = None
     if os.name == 'nt' and hasattr(subprocess, 'STARTUPINFO'):
         startupinfo = subprocess.STARTUPINFO() # type: ignore
