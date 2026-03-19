@@ -587,7 +587,6 @@ class ClipGenApp(ctk.CTk):
         def run_test():
             try:
                 import urllib.request
-                import urllib.error
                 import json
                 req = urllib.request.Request(url, method="POST", headers={"Content-Type": "application/json"})
                 data = json.dumps({"content": "✅ **Test Alert from jBahr's Clip Generator!** The Webhook link is alive."}).encode('utf-8')
