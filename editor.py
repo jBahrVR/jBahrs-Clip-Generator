@@ -122,7 +122,7 @@ def extract_audio_hidden(file_path, sr=16000):
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=startupinfo)
     stdout, stderr = process.communicate()
     if process.returncode != 0:
-        raise RuntimeError(f"FFmpeg audio extraction failed: {stderr.decode()}")
+        raise RuntimeError(f"FFmpeg audio extraction failed: {stderr.decode()}") # type: ignore
         
     return np.frombuffer(stdout, np.int16).flatten().astype(np.float32) / 32768.0
 

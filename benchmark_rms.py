@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np # type: ignore
 import time
 
 def analyze_audio_peaks_original(audio_array, segments, sample_rate=16000, peak_detection=True, combat_detection=True):
@@ -51,7 +51,7 @@ def analyze_audio_peaks_optimized(audio_array, segments, sample_rate=16000, peak
             continue
         prefix_tags = []
 
-        rms = None
+        rms = 0.0
         if peak_detection or combat_detection:
             rms = np.sqrt(np.mean(chunk**2))
 
