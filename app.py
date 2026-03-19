@@ -42,6 +42,17 @@ class ClipGenApp(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
+        self._setup_sidebar()
+        self._setup_manual_frame()
+        self._setup_auto_frame()
+        self._setup_prompt_frame()
+        self._setup_settings_frame()
+        self._setup_gallery_frame()
+
+        self.load_prompt_data()
+        self.show_manual_frame()
+
+    def _setup_sidebar(self):
         # ==================== SIDEBAR ====================
         self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color="#1e1e1e")
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
@@ -89,6 +100,7 @@ class ClipGenApp(ctk.CTk):
         self.version_label = ctk.CTkLabel(self.sidebar_frame, text="v1.2.1 Creator Edition", font=ctk.CTkFont(size=10), text_color="gray")
         self.version_label.grid(row=13, column=0, padx=20, pady=10, sticky="s")
 
+    def _setup_manual_frame(self):
         # ==================== MANUAL FRAME ====================
         self.manual_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.manual_frame.grid_columnconfigure(0, weight=1)
@@ -136,6 +148,7 @@ class ClipGenApp(ctk.CTk):
         self.console_box.tag_config("ai", foreground="#00d2ff")
         self.console_box.tag_config("ffmpeg", foreground="#f39c12")
 
+    def _setup_auto_frame(self):
         # ==================== AUTO FRAME ====================
         self.auto_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.auto_frame.grid_columnconfigure(0, weight=1)
@@ -199,6 +212,7 @@ class ClipGenApp(ctk.CTk):
         self.auto_console.tag_config("ai", foreground="#00d2ff")
         self.auto_console.tag_config("ffmpeg", foreground="#f39c12")
 
+    def _setup_prompt_frame(self):
         # ==================== PROMPT MANAGER FRAME ====================
         self.prompt_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.prompt_frame.grid_columnconfigure(0, weight=1)
@@ -231,6 +245,7 @@ class ClipGenApp(ctk.CTk):
         self.save_prompt_btn = ctk.CTkButton(self.prompt_editor_card, text="Save Current Prompt", height=40, font=ctk.CTkFont(weight="bold"), command=self.save_current_prompt)
         self.save_prompt_btn.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="e")
 
+    def _setup_settings_frame(self):
         # ==================== SETTINGS FRAME ====================
         self.settings_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.settings_frame.grid_columnconfigure(0, weight=1)
@@ -444,6 +459,7 @@ class ClipGenApp(ctk.CTk):
         self.save_btn = ctk.CTkButton(self.settings_frame, text="Save Settings", height=45, font=ctk.CTkFont(weight="bold"), command=self.save_settings)
         self.save_btn.grid(row=5, column=0, padx=30, pady=20, sticky="e")
 
+    def _setup_gallery_frame(self):
         # ==================== GALLERY FRAME ====================
         self.gallery_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.gallery_frame.grid_columnconfigure(1, weight=1)
@@ -516,9 +532,6 @@ class ClipGenApp(ctk.CTk):
 
         self.open_folder_btn = ctk.CTkButton(self.gallery_btns_frame, text="📁 Open Folder", height=50, font=ctk.CTkFont(weight="bold"), state="disabled", fg_color="#2b2b2b", hover_color="#3b3b3b")
         self.open_folder_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
-
-        self.load_prompt_data()
-        self.show_manual_frame()
 
     def _init_logging(self):
         log_dir = os.path.join(config_manager.get_app_data_path(), "logs")
