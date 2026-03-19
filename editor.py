@@ -117,13 +117,7 @@ def extract_audio_hidden(file_path, sr=16000):
         "-f", "s16le", "-ac", "1", "-acodec", "pcm_s16le", "-ar", str(sr), "-"
     ]
     
-    startupinfo = None
-    if os.name == 'nt' and hasattr(subprocess, 'STARTUPINFO'):
-        startupinfo = subprocess.STARTUPINFO() # type: ignore
-        if hasattr(subprocess, 'STARTF_USESHOWWINDOW'):
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW # type: ignore
-        if hasattr(subprocess, 'SW_HIDE'):
-            startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
+    startupinfo = _get_startupinfo()
 
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=startupinfo)
     stdout, stderr = process.communicate()
@@ -131,6 +125,169 @@ def extract_audio_hidden(file_path, sr=16000):
         raise RuntimeError(f"FFmpeg audio extraction failed: {stderr.decode()}")
         
     return np.frombuffer(stdout, np.int16).flatten().astype(np.float32) / 32768.0
+
+def _get_startupinfo():
+    """Returns the startupinfo configuration to hide the FFmpeg command window on Windows."""
+    startupinfo = None
+    if os.name == 'nt' and hasattr(subprocess, 'STARTUPINFO'):
+        startupinfo = subprocess.STARTUPINFO() # type: ignore
+        if hasattr(subprocess, 'STARTF_USESHOWWINDOW'):
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW # type: ignore
+        if hasattr(subprocess, 'SW_HIDE'):
+            startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
+    return startupinfo
+
+def _get_gpu_codec(logger=None):
+    """Detects the optimal GPU architecture for hardware encoding."""
+    gpu_codec = "h264_nvenc"
+    try:
+        if torch.cuda.is_available():
+            device_name = torch.cuda.get_device_name(0).lower()
+            if "amd" in device_name or "radeon" in device_name:
+                gpu_codec = "h264_amf"
+    except Exception as e:
+        if logger: logger(f"⚠️ Failed to detect GPU for hardware encoding: {e}")
+    return gpu_codec
+
+def _generate_horizontal_clip(file_path, output_file, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, startupinfo, logger):
+    cmd = [
+        "ffmpeg", "-y",
+        "-ss", str(start_time),
+        "-to", str(end_time),
+        "-i", file_path,
+        "-c:v", video_codec,
+        "-preset", "fast" if not hardware_encoding else "p4"
+    ]
+
+    if not hardware_encoding:
+        cmd.extend(["-crf", "23"])
+    else:
+        cmd.extend(["-cq", "25", "-rc", "vbr"])
+
+    if vr_stabilization:
+        if logger: logger("🎞️ Applying VR Anti-Shake filter...")
+        cmd.extend(["-vf", "deshake=rx=64:ry=64:edge=mirror"])
+
+    cmd.extend(audio_codec_flags)
+    cmd.append(output_file)
+
+    if logger:
+        logger(f"✂️ Cutting horizontal clip ({start_time}s - {end_time}s)...")
+        
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+
+def _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vertical_mode, config, startupinfo, logger):
+    if logger: logger(f"📱 Generating Vertical Shorts format ({vertical_mode})...")
+
+    if vertical_mode == "Standard Center Crop":
+        vf_command = "crop=ih*9/16:ih,scale=1080:1920"
+        vert_cmd = [
+            "ffmpeg", "-y",
+            "-ss", str(start_time),
+            "-to", str(end_time),
+            "-i", file_path,
+            "-vf", vf_command,
+            "-c:v", video_codec, "-preset", "fast" if not hardware_encoding else "p4",
+        ]
+        if not hardware_encoding: vert_cmd.extend(["-crf", "23"])
+        else: vert_cmd.extend(["-cq", "25", "-rc", "vbr"])
+
+        vert_cmd.extend(audio_codec_flags)
+        vert_cmd.append(vert_output)
+
+    else:
+        x, y, w, h = 0, 0, 400, 225
+
+        if vertical_mode == "Facecam Top-Left": x, y = 0, 0
+        elif vertical_mode == "Facecam Top-Right": x, y = 1520, 0
+        elif vertical_mode == "Facecam Bottom-Left": x, y = 0, 855
+        elif vertical_mode == "Facecam Bottom-Right": x, y = 1520, 855
+        elif vertical_mode == "Custom Coordinates":
+            x = config.get("settings", {}).get("crop_x", "0")
+            y = config.get("settings", {}).get("crop_y", "0")
+            w = config.get("settings", {}).get("crop_w", "400")
+            h = config.get("settings", {}).get("crop_h", "225")
+
+        filter_complex = f"[0:v]crop={w}:{h}:{x}:{y},scale=1080:840[cam];[0:v]crop=1080:1080:420:0[game];[cam][game]vstack=inputs=2[out]"
+        
+        vert_cmd = [
+            "ffmpeg", "-y", 
+            "-ss", str(start_time), 
+            "-to", str(end_time), 
+            "-i", file_path, 
+            "-filter_complex", filter_complex,
+            "-map", "[out]", "-map", "0:a",
+            "-c:v", video_codec, "-preset", "fast" if not hardware_encoding else "p4",
+        ]
+        if not hardware_encoding: vert_cmd.extend(["-crf", "23"])
+        else: vert_cmd.extend(["-cq", "25", "-rc", "vbr"])
+        
+        vert_cmd.extend(audio_codec_flags)
+        vert_cmd.append(vert_output)
+
+    subprocess.run(vert_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+
+def _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, startupinfo, logger):
+    if logger: logger("📸 Generating clip thumbnail...")
+    mid_point = (end_time - start_time) / 2
+    thumb_cmd = [
+        "ffmpeg", "-y", "-ss", str(mid_point), "-i", target_for_thumb,
+        "-vframes", "1", "-vf", "scale=-1:200", "-q:v", "5", thumb_file
+    ]
+    subprocess.run(thumb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+
+
+def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, vertical_export, vertical_mode, config, startupinfo, logger, is_cancelled):
+    if is_cancelled and is_cancelled():
+        if logger: logger("🛑 Clip extraction aborted by user.")
+        return None
+        
+    start_time = clip.get("start_time")
+    end_time = clip.get("end_time")
+    score = clip.get("virality_score", "N/A")
+
+    if start_time is None or end_time is None:
+        return None
+
+    output_file = os.path.join(output_dir, f"{base_name}_clip{i+1}_score{score}.mp4")
+    json_meta_file = os.path.join(output_dir, f"{base_name}_clip{i+1}_score{score}.json")
+
+    created_files_for_clip = []
+
+    try:
+        _generate_horizontal_clip(file_path, output_file, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, startupinfo, logger)
+        created_files_for_clip.append(output_file)
+
+        with open(json_meta_file, 'w', encoding='utf-8') as meta_f:
+            json.dump(clip, meta_f, indent=4)
+            
+        # --- VERTICAL AUTO-CROPPER ---
+        if vertical_export:
+            vert_output = output_file.replace(".mp4", "_vertical.mp4")
+            
+            if is_cancelled and is_cancelled():
+                if logger: logger("🛑 Clip extraction aborted by user.")
+                return created_files_for_clip
+                
+            _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vertical_mode, config, startupinfo, logger)
+            created_files_for_clip.append(vert_output)
+
+        # --- THUMBNAIL GENERATOR ---
+        target_for_thumb = vert_output if vertical_export else output_file
+        thumb_file = output_file.replace(".mp4", ".jpg")
+
+        if is_cancelled and is_cancelled():
+            if logger: logger("🛑 Clip extraction aborted by user.")
+            return created_files_for_clip
+
+        _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, startupinfo, logger)
+
+    except Exception as e:
+        if logger:
+            logger(f"❌ FFmpeg error on clip {i+1}: {e}")
+
+    return created_files_for_clip
+
 
 def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
     base_name = os.path.splitext(os.path.basename(file_path))[0]
@@ -144,167 +301,36 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
     hardware_encoding = config.get("settings", {}).get("hardware_encoding", False)
     audio_downmix = config.get("settings", {}).get("audio_downmix", True)
 
-    # Detect optimal GPU architecture
-    gpu_codec = "h264_nvenc"
-    try:
-        if torch.cuda.is_available():
-            device_name = torch.cuda.get_device_name(0).lower()
-            if "amd" in device_name or "radeon" in device_name:
-                gpu_codec = "h264_amf"
-    except Exception as e:
-        if logger: logger(f"⚠️ Failed to detect GPU for hardware encoding: {e}")
+    gpu_codec = _get_gpu_codec(logger)
 
     video_codec = gpu_codec if hardware_encoding else "libx264"
     audio_codec_flags = ["-ac", "2", "-c:a", "aac", "-b:a", "192k"] if audio_downmix else ["-c:a", "copy"]
 
+    startupinfo = _get_startupinfo()
+
     created_files = []
     for i, clip in enumerate(clips_data.get("clips", [])):
-        if is_cancelled and is_cancelled():
-            if logger: logger("🛑 Clip extraction aborted by user.")
+        clip_files = _process_single_clip(
+            i, clip, file_path, base_name, output_dir,
+            video_codec, audio_codec_flags, hardware_encoding,
+            vr_stabilization, vertical_export, vertical_mode,
+            config, startupinfo, logger, is_cancelled
+        )
+
+        if clip_files is None:
             break
-            
-        start_time = clip.get("start_time")
-        end_time = clip.get("end_time")
-        score = clip.get("virality_score", "N/A")
-        
-        if start_time is None or end_time is None:
-            continue
 
-        output_file = os.path.join(output_dir, f"{base_name}_clip{i+1}_score{score}.mp4")
-        json_meta_file = os.path.join(output_dir, f"{base_name}_clip{i+1}_score{score}.json")
-        
-        cmd = [
-            "ffmpeg", "-y", 
-            "-ss", str(start_time), 
-            "-to", str(end_time), 
-            "-i", file_path, 
-            "-c:v", video_codec,
-            "-preset", "fast" if not hardware_encoding else "p4" # p4 is a safe default preset for nvenc
-        ]
-        
-        if not hardware_encoding:
-            cmd.extend(["-crf", "23"])
-        else:
-            cmd.extend(["-cq", "25", "-rc", "vbr"]) # Better sizing for hardware encode
-
-        if vr_stabilization:
-            if logger: logger("🎞️ Applying VR Anti-Shake filter...")
-            cmd.extend(["-vf", "deshake=rx=64:ry=64:edge=mirror"])
-
-        cmd.extend(audio_codec_flags)
-        cmd.append(output_file)
-        
-        if logger: 
-            logger(f"✂️ Cutting horizontal clip {i+1} ({start_time}s - {end_time}s)...")
-            
-        startupinfo = None
-        if os.name == 'nt' and hasattr(subprocess, 'STARTUPINFO'):
-            startupinfo = subprocess.STARTUPINFO() # type: ignore
-            if hasattr(subprocess, 'STARTF_USESHOWWINDOW'):
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW # type: ignore
-            if hasattr(subprocess, 'SW_HIDE'):
-                startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
-            
-        try:
-            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
-            created_files.append(output_file)
-            
-            with open(json_meta_file, 'w', encoding='utf-8') as meta_f:
-                json.dump(clip, meta_f, indent=4)
-                
-            # --- VERTICAL AUTO-CROPPER ---
-            if vertical_export:
-                vert_output = output_file.replace(".mp4", "_vertical.mp4")
-                if logger: logger(f"📱 Generating Vertical Shorts format ({vertical_mode})...")
-                
-                if vertical_mode == "Standard Center Crop":
-                    vf_command = "crop=ih*9/16:ih,scale=1080:1920"
-                    vert_cmd = [
-                        "ffmpeg", "-y", 
-                        "-ss", str(start_time), 
-                        "-to", str(end_time), 
-                        "-i", file_path, 
-                        "-vf", vf_command, 
-                        "-c:v", video_codec, "-preset", "fast" if not hardware_encoding else "p4", 
-                    ]
-                    if not hardware_encoding: vert_cmd.extend(["-crf", "23"])
-                    else: vert_cmd.extend(["-cq", "25", "-rc", "vbr"])
-                    
-                    vert_cmd.extend(audio_codec_flags)
-                    vert_cmd.append(vert_output)
-                    
-                else:
-                    x, y, w, h = 0, 0, 400, 225 
-                    
-                    if vertical_mode == "Facecam Top-Left": x, y = 0, 0
-                    elif vertical_mode == "Facecam Top-Right": x, y = 1520, 0
-                    elif vertical_mode == "Facecam Bottom-Left": x, y = 0, 855
-                    elif vertical_mode == "Facecam Bottom-Right": x, y = 1520, 855
-                    elif vertical_mode == "Custom Coordinates":
-                        x = config.get("settings", {}).get("crop_x", "0")
-                        y = config.get("settings", {}).get("crop_y", "0")
-                        w = config.get("settings", {}).get("crop_w", "400")
-                        h = config.get("settings", {}).get("crop_h", "225")
-
-                    filter_complex = f"[0:v]crop={w}:{h}:{x}:{y},scale=1080:840[cam];[0:v]crop=1080:1080:420:0[game];[cam][game]vstack=inputs=2[out]"
-                    
-                    vert_cmd = [
-                        "ffmpeg", "-y", 
-                        "-ss", str(start_time), 
-                        "-to", str(end_time), 
-                        "-i", file_path, 
-                        "-filter_complex", filter_complex, 
-                        "-map", "[out]", "-map", "0:a", 
-                        "-c:v", video_codec, "-preset", "fast" if not hardware_encoding else "p4", 
-                    ]
-                    if not hardware_encoding: vert_cmd.extend(["-crf", "23"])
-                    else: vert_cmd.extend(["-cq", "25", "-rc", "vbr"])
-                    
-                    vert_cmd.extend(audio_codec_flags)
-                    vert_cmd.append(vert_output)
-
-                if is_cancelled and is_cancelled():
-                    if logger: logger("🛑 Clip extraction aborted by user.")
-                    break
-                subprocess.run(vert_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
-                created_files.append(vert_output)
-
-            # --- THUMBNAIL GENERATOR ---
-            target_for_thumb = vert_output if vertical_export else output_file
-            thumb_file = output_file.replace(".mp4", ".jpg")
-            if logger: logger("📸 Generating clip thumbnail...")
-            mid_point = (end_time - start_time) / 2
-            thumb_cmd = [
-                "ffmpeg", "-y", "-ss", str(mid_point), "-i", target_for_thumb,
-                "-vframes", "1", "-vf", "scale=-1:200", "-q:v", "5", thumb_file
-            ]
-            if is_cancelled and is_cancelled():
-                if logger: logger("🛑 Clip extraction aborted by user.")
-                break
-            subprocess.run(thumb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
-
-        except Exception as e:
-            if logger: 
-                logger(f"❌ FFmpeg error on clip {i+1}: {e}")
+        created_files.extend(clip_files)
         
     return created_files
 
-def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None, is_cancelled=None):
-    config = config_manager.load_config()
-    chat_model = config.get("openai", {}).get("chat_model", "gpt-4o")
+def _validate_api_keys(config, chat_model, logger):
     openai_key = config.get("openai", {}).get("api_key", "")
     openai_base_url = config.get("openai", {}).get("base_url", "")
     google_key = config.get("google", {}).get("api_key", "")
     anthropic_key = config.get("anthropic", {}).get("api_key", "")
     xai_key = config.get("xai", {}).get("api_key", "")
     
-    whisper_model_type = config.get("openai", {}).get("whisper_model", "base")
-    clips_dir = config.get("settings", {}).get("clips_dir", "")
-    
-    if not clips_dir:
-        if logger: logger("❌ Error: Generated Clips folder not set in Settings.")
-        return
-
     is_gemini_model = chat_model.startswith("gemini") or "gemini" in chat_model
     is_anthropic_model = chat_model.startswith("claude") and "openrouter" not in chat_model
     is_openrouter = "openrouter" in chat_model or openai_base_url != ""
@@ -316,17 +342,21 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
     
     if is_gemini_model and not is_openrouter and not google_key:
         if logger: logger("❌ Error: Google API Key not set for Gemini model.")
-        return
+        return False
     elif is_anthropic_model and not is_openrouter and not anthropic_key:
         if logger: logger("❌ Error: Anthropic API Key not set.")
-        return
-    elif not is_gemini_model and not is_anthropic_model and not openai_key:
-        if is_grok_model:
+        return False
+    elif not is_gemini_model and not is_anthropic_model:
+        if is_grok_model and not xai_key:
             if logger: logger("❌ Error: Grok/xAI API Key not set.")
-        else:
+            return False
+        elif not is_grok_model and not openai_key:
             if logger: logger("❌ Error: OpenAI/Custom API Key not set.")
-        return
+            return False
+    return True
 
+def _transcribe_audio_to_segments(file_path, config, logger, is_cancelled):
+    whisper_model_type = config.get("openai", {}).get("whisper_model", "base")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     if logger:
@@ -343,19 +373,18 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
         model = whisper.load_model(whisper_model_type, device=device)
     except Exception as e:
         if logger: logger(f"❌ Failed to load Whisper: {e}")
-        return
+        return None
 
-    if is_cancelled and is_cancelled(): return
+    if is_cancelled and is_cancelled(): return None
     
-    # --- THE FIX: We use our hidden interceptor to pull the audio first ---
     if logger: logger("🎙️ Extracting audio track silently...")
     try:
         audio_array = extract_audio_hidden(file_path)
     except Exception as e:
         if logger: logger(f"❌ Audio extraction error: {e}")
-        return
+        return None
 
-    if is_cancelled and is_cancelled(): return
+    if is_cancelled and is_cancelled(): return None
 
     audio_peak_detection = config.get("settings", {}).get("audio_peak_detection", True)
     combat_detection = config.get("settings", {}).get("combat_detection", True)
@@ -368,8 +397,6 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
             
     try:
         fp16_enabled = True if device == "cuda" else False
-        
-        # We redirect stdout globally during transcribe using our Stream that only surfaces major segment progress
         progress_stream = WhisperProgressStream(logger)
         with contextlib.redirect_stdout(progress_stream):
             result = model.transcribe(audio_array, condition_on_previous_text=False, beam_size=1, fp16=fp16_enabled, verbose=True)
@@ -385,18 +412,32 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
             
     except Exception as e:
         if logger: logger(f"❌ Transcription error: {e}")
-        return
+        return None
 
     if not segments:
         if logger: logger("❌ No audio segments found in the transcription.")
-        return
+        return None
 
-    if is_cancelled and is_cancelled(): return
+    return segments
 
-    prompt_text = config.get("prompts", {}).get("profiles", {}).get(prompt_profile, "Find the best 15-90s moments. Output JSON.")
+def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
+    openai_key = config.get("openai", {}).get("api_key", "")
+    openai_base_url = config.get("openai", {}).get("base_url", "")
+    google_key = config.get("google", {}).get("api_key", "")
+    anthropic_key = config.get("anthropic", {}).get("api_key", "")
+    xai_key = config.get("xai", {}).get("api_key", "")
+
+    is_gemini_model = chat_model.startswith("gemini") or "gemini" in chat_model
+    is_anthropic_model = chat_model.startswith("claude") and "openrouter" not in chat_model
+    is_openrouter = "openrouter" in chat_model or openai_base_url != ""
+    is_grok_model = chat_model.startswith("grok")
+
+    if is_grok_model:
+        openai_key = xai_key
+        openai_base_url = "https://api.x.ai/v1"
+
     all_clips = []
     
-    # We now build ONE massive transcript to feed to the modern large-context AI models
     full_transcript = "".join(
         f"[{seg['start']:.1f}s - {seg['end']:.1f}s] {seg['text'].strip()}\n"
         for seg in segments
@@ -405,7 +446,7 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
     if is_gemini_model and not is_openrouter:
         if not HAS_GEMINI:
             if logger: logger("❌ Error: google-generativeai module missing.")
-            return
+            return []
             
         if logger: logger(f"🌌 Routing to native Gemini Engine ({chat_model}) with {len(segments)} segments...")
 
@@ -433,7 +474,7 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
     elif is_anthropic_model:
         if not HAS_ANTHROPIC:
             if logger: logger("❌ Error: anthropic python module missing.")
-            return
+            return []
             
         if logger: logger(f"🌌 Routing to native Anthropic Engine ({chat_model}) with {len(segments)} segments...")
 
@@ -449,7 +490,6 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
                 ]
             )
             
-            # Anthropic doesn't have a guaranteed JSON output mode, so strip markdown if present
             raw_content = response.content[0].text.strip()
             if raw_content.startswith("```json"):
                 raw_content = raw_content.split("```json")[-1].split("```")[0].strip()
@@ -496,6 +536,31 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
                 if logger: logger(f"🤷‍♂️ No clips found.")
         except Exception as e:
             if logger: logger(f"❌ OpenAI/Custom API Error: {e}")
+
+    return all_clips
+
+def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None, is_cancelled=None):
+    """Main orchestration function for analyzing and cutting clips."""
+    config = config_manager.load_config()
+    chat_model = config.get("openai", {}).get("chat_model", "gpt-4o")
+    clips_dir = config.get("settings", {}).get("clips_dir", "")
+
+    if not clips_dir:
+        if logger: logger("❌ Error: Generated Clips folder not set in Settings.")
+        return
+
+    if not _validate_api_keys(config, chat_model, logger):
+        return
+
+    segments = _transcribe_audio_to_segments(file_path, config, logger, is_cancelled)
+    if not segments:
+        return
+
+    if is_cancelled and is_cancelled(): return
+
+    prompt_text = config.get("prompts", {}).get("profiles", {}).get(prompt_profile, "Find the best 15-90s moments. Output JSON.")
+
+    all_clips = _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger)
 
     if all_clips:
         if logger: logger(f"🎬 Sending {len(all_clips)} total timestamp(s) to FFmpeg...")
