@@ -1,4 +1,5 @@
 import os
+import stat
 import json
 import shutil
 
@@ -149,5 +150,16 @@ def load_config():
     return get_default_config()
 
 def save_config(config):
-    with open(CONFIG_FILE, 'w') as f:
+    # Open file descriptor with restrictive permissions
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    mode = stat.S_IRUSR | stat.S_IWUSR
+
+    fd = os.open(CONFIG_FILE, flags, mode)
+    with os.fdopen(fd, 'w') as f:
         json.dump(config, f, indent=4)
+
+    # Ensure existing files also have restricted permissions
+    try:
+        os.chmod(CONFIG_FILE, mode)
+    except OSError:
+        pass
