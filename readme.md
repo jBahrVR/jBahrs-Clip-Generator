@@ -1,18 +1,19 @@
 # 🎬 jBahr's Clip Generator
 
-An automated, AI-powered highlight extraction tool built specifically for high-immersion VR and gaming content creators. 
+An automated, AI-powered highlight extraction tool built specifically for high-immersion VR and gaming content creators.
 
 Tired of scrubbing through 4-hour VODs looking for a 20-second highlight? **jBahr's Clip Generator** automatically downloads your streams (or processes your local OBS recordings), transcribes the audio locally using your GPU, and uses advanced modern LLMs (Anthropic, DeepSeek, OpenAI, Google Gemini, xAI) to mathematically hunt down the funniest banter, the loudest jump scares, and the craziest clutches.
 
 **DISCLAIMER!**
 
-I am not a developer, I have entirely "Vibe Coded" this app as I was not finding any ideal solutions for auto clipping my VR content that didnt involve high costs and messy results. I am just sharing what I have made in the hopes that it helps other content creators out there generate solid content from their livestream vods or local recordings. 
+I am not a developer, I have entirely "Vibe Coded" this app as I was not finding any ideal solutions for auto clipping my VR content that didnt involve high costs and messy results. I am just sharing what I have made in the hopes that it helps other content creators out there generate solid content from their livestream vods or local recordings.
 
 ---
 
 ## ⚡ Quick Start Guide (Manual Processing)
 
 Get up and running in 4 easy steps!
+
 1. **Install the Application:** Run the `setup.exe` file to install the Clip Generator to your system.
 2. **Install Prerequisites:** Ensure `ffmpeg.exe`, `ffprobe.exe`, `yt-dlp.exe`, and `deno.exe` are in the exact same folder as the app executable.
 3. **Add an API Key:** Go to the **Settings** tab and paste in a valid API Key (see "API Limits & Recommendations" below). Make sure to choose the API Chat Model in the dropdown and click **Save Settings**.
@@ -38,7 +39,7 @@ Get up and running in 4 easy steps!
 * **Vertical Auto-Cropper & VR Stabilization:** Converts horizontal gameplay into perfect 9:16 Shorts/TikToks. Toggle on the post-processing VR filter to automatically smooth out jarring head movements.
 * **Discord Webhook Alerts:** Automatically pings your private Discord server with a native alert when a batch of clips is successfully extracted.
 * **Multi-Track Audio Downmixing:** Automatically downmixes multi-track OBS setups (e.g., Game on Track 1, Mic on Track 2) into a single unified stereo track for Whisper transcription.
-* **GPU Hardware Encoding (NVENC/AMF):** Leverages your Nvidia or Radeon GPU to execute FFmpeg clipping filters, decimating render times. 
+* **GPU Hardware Encoding (NVENC/AMF):** Leverages your Nvidia or Radeon GPU to execute FFmpeg clipping filters, decimating render times.
 * **100% Free Local Transcription:** Uses OpenAI's open-source `Whisper` model running local on your GPU to transcribe massive files in minutes without API fees.
 * **The Auto-Scheduler:** Set it and forget it! The app silently runs in your system tray, checking YouTube or Twitch for new uploads and cutting clips while you sleep.
 
@@ -59,15 +60,17 @@ To power the "Editor" brain of the app, you will need an API key from at least o
 If you are running the compiled Windows executable, the core AI libraries are pre-packaged! However, the app relies on four external open-source tools to handle downloading, cutting, and backend routing.
 
 **You MUST place the executable files for these tools in the same folder as your Clip Generator app:**
-1.  **FFmpeg & FFprobe:** The engines that physically cut and restack the `.mp4` files.
-2.  **yt-dlp:** The engine that downloads the VODs from YouTube and Twitch.
-3.  **Deno:** Required to execute the app's background logic.
+
+1. **FFmpeg & FFprobe:** The engines that physically cut and restack the `.mp4` files.
+2. **yt-dlp:** The engine that downloads the VODs from YouTube and Twitch.
+3. **Deno:** Required to execute the app's background logic.
 
 ---
 
 ## 🚀 How to Use
 
 ### 1. Configuration
+
 1. Open the app and navigate to the **Settings** tab.
 2. Enter your **YouTube Channel ID** and/or **Twitch Username**.
 3. Paste an API key into the Auth card and click **"Test Key"** to verify it.
@@ -76,9 +79,11 @@ If you are running the compiled Windows executable, the core AI libraries are pr
 6. Click **Save Settings**.
 
 ### 2. Customizing AI Prompts
+
 The app provides an optimized "Omni-Genre" profile that supports loudness mapping and combat detection. We have fine-tuned our default prompts to remove extraction biases, ensuring as many viral moments are captured as possible. You can create your own custom prompt profiles in the **Prompts** tab.
 
 ### 3. Reviewing & Sorting Clips
+
 1. Navigate to the **🖼️ Clip Gallery** tab.
 2. Use the **"Sort by"** dropdown to organize your clips by Date or Virality Score.
 3. Select any clip to view its AI Reasoning and Score.
@@ -86,6 +91,7 @@ The app provides an optimized "Omni-Genre" profile that supports loudness mappin
 5. Use the checkboxes and **Delete Marked Clips** for easy cleanup.
 
 ### 4. The Auto-Scheduler
+
 1. Go to the **Auto Scheduler** tab.
 2. Select your platform, lookback rules, and checking interval.
 3. Toggle the **Enable Watcher** switch.
@@ -95,7 +101,7 @@ The app provides an optimized "Omni-Genre" profile that supports loudness mappin
 
 ## 💬 Community
 
-Want to talk VR content creation or share feature requests? 
+Want to talk VR content creation or share feature requests?
 **[Join the jBahrVR Discord Server](https://discord.gg/uUF8J9Zqwz)**
 
 ---
@@ -108,4 +114,5 @@ Want to talk VR content creation or share feature requests?
 ---
 
 ### Contributing
-Pull requests are welcome! 
+
+Pull requests are welcome!
