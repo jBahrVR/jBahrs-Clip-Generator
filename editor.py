@@ -288,22 +288,13 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
         
     return created_files
 
-def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None, is_cancelled=None):
-    config = config_manager.load_config()
-    chat_model = config.get("openai", {}).get("chat_model", "gpt-4o")
+def _validate_api_keys(config, chat_model, logger):
     openai_key = config.get("openai", {}).get("api_key", "")
     openai_base_url = config.get("openai", {}).get("base_url", "")
     google_key = config.get("google", {}).get("api_key", "")
     anthropic_key = config.get("anthropic", {}).get("api_key", "")
     xai_key = config.get("xai", {}).get("api_key", "")
     
-    whisper_model_type = config.get("openai", {}).get("whisper_model", "base")
-    clips_dir = config.get("settings", {}).get("clips_dir", "")
-    
-    if not clips_dir:
-        if logger: logger("❌ Error: Generated Clips folder not set in Settings.")
-        return
-
     is_gemini_model = chat_model.startswith("gemini") or "gemini" in chat_model
     is_anthropic_model = chat_model.startswith("claude") and "openrouter" not in chat_model
     is_openrouter = "openrouter" in chat_model or openai_base_url != ""
@@ -315,17 +306,21 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
     
     if is_gemini_model and not is_openrouter and not google_key:
         if logger: logger("❌ Error: Google API Key not set for Gemini model.")
-        return
+        return False
     elif is_anthropic_model and not is_openrouter and not anthropic_key:
         if logger: logger("❌ Error: Anthropic API Key not set.")
-        return
-    elif not is_gemini_model and not is_anthropic_model and not openai_key:
-        if is_grok_model:
+        return False
+    elif not is_gemini_model and not is_anthropic_model:
+        if is_grok_model and not xai_key:
             if logger: logger("❌ Error: Grok/xAI API Key not set.")
-        else:
+            return False
+        elif not is_grok_model and not openai_key:
             if logger: logger("❌ Error: OpenAI/Custom API Key not set.")
-        return
+            return False
+    return True
 
+def _transcribe_audio_to_segments(file_path, config, logger, is_cancelled):
+    whisper_model_type = config.get("openai", {}).get("whisper_model", "base")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     if logger:
@@ -342,19 +337,18 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
         model = whisper.load_model(whisper_model_type, device=device)
     except Exception as e:
         if logger: logger(f"❌ Failed to load Whisper: {e}")
-        return
+        return None
 
-    if is_cancelled and is_cancelled(): return
+    if is_cancelled and is_cancelled(): return None
     
-    # --- THE FIX: We use our hidden interceptor to pull the audio first ---
     if logger: logger("🎙️ Extracting audio track silently...")
     try:
         audio_array = extract_audio_hidden(file_path)
     except Exception as e:
         if logger: logger(f"❌ Audio extraction error: {e}")
-        return
+        return None
 
-    if is_cancelled and is_cancelled(): return
+    if is_cancelled and is_cancelled(): return None
 
     audio_peak_detection = config.get("settings", {}).get("audio_peak_detection", True)
     combat_detection = config.get("settings", {}).get("combat_detection", True)
@@ -367,8 +361,6 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
             
     try:
         fp16_enabled = True if device == "cuda" else False
-        
-        # We redirect stdout globally during transcribe using our Stream that only surfaces major segment progress
         progress_stream = WhisperProgressStream(logger)
         with contextlib.redirect_stdout(progress_stream):
             result = model.transcribe(audio_array, condition_on_previous_text=False, beam_size=1, fp16=fp16_enabled, verbose=True)
@@ -384,18 +376,32 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
             
     except Exception as e:
         if logger: logger(f"❌ Transcription error: {e}")
-        return
+        return None
 
     if not segments:
         if logger: logger("❌ No audio segments found in the transcription.")
-        return
+        return None
 
-    if is_cancelled and is_cancelled(): return
+    return segments
 
-    prompt_text = config.get("prompts", {}).get("profiles", {}).get(prompt_profile, "Find the best 15-90s moments. Output JSON.")
+def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
+    openai_key = config.get("openai", {}).get("api_key", "")
+    openai_base_url = config.get("openai", {}).get("base_url", "")
+    google_key = config.get("google", {}).get("api_key", "")
+    anthropic_key = config.get("anthropic", {}).get("api_key", "")
+    xai_key = config.get("xai", {}).get("api_key", "")
+
+    is_gemini_model = chat_model.startswith("gemini") or "gemini" in chat_model
+    is_anthropic_model = chat_model.startswith("claude") and "openrouter" not in chat_model
+    is_openrouter = "openrouter" in chat_model or openai_base_url != ""
+    is_grok_model = chat_model.startswith("grok")
+
+    if is_grok_model:
+        openai_key = xai_key
+        openai_base_url = "https://api.x.ai/v1"
+
     all_clips = []
     
-    # We now build ONE massive transcript to feed to the modern large-context AI models
     full_transcript = "".join(
         f"[{seg['start']:.1f}s - {seg['end']:.1f}s] {seg['text'].strip()}\n"
         for seg in segments
@@ -404,7 +410,7 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
     if is_gemini_model and not is_openrouter:
         if not HAS_GEMINI:
             if logger: logger("❌ Error: google-generativeai module missing.")
-            return
+            return []
             
         if logger: logger(f"🌌 Routing to native Gemini Engine ({chat_model}) with {len(segments)} segments...")
 
@@ -432,7 +438,7 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
     elif is_anthropic_model:
         if not HAS_ANTHROPIC:
             if logger: logger("❌ Error: anthropic python module missing.")
-            return
+            return []
             
         if logger: logger(f"🌌 Routing to native Anthropic Engine ({chat_model}) with {len(segments)} segments...")
 
@@ -448,7 +454,6 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
                 ]
             )
             
-            # Anthropic doesn't have a guaranteed JSON output mode, so strip markdown if present
             raw_content = response.content[0].text.strip()
             if raw_content.startswith("```json"):
                 raw_content = raw_content.split("```json")[-1].split("```")[0].strip()
@@ -495,6 +500,31 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
                 if logger: logger(f"🤷‍♂️ No clips found.")
         except Exception as e:
             if logger: logger(f"❌ OpenAI/Custom API Error: {e}")
+
+    return all_clips
+
+def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None, is_cancelled=None):
+    """Main orchestration function for analyzing and cutting clips."""
+    config = config_manager.load_config()
+    chat_model = config.get("openai", {}).get("chat_model", "gpt-4o")
+    clips_dir = config.get("settings", {}).get("clips_dir", "")
+
+    if not clips_dir:
+        if logger: logger("❌ Error: Generated Clips folder not set in Settings.")
+        return
+
+    if not _validate_api_keys(config, chat_model, logger):
+        return
+
+    segments = _transcribe_audio_to_segments(file_path, config, logger, is_cancelled)
+    if not segments:
+        return
+
+    if is_cancelled and is_cancelled(): return
+
+    prompt_text = config.get("prompts", {}).get("profiles", {}).get(prompt_profile, "Find the best 15-90s moments. Output JSON.")
+
+    all_clips = _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger)
 
     if all_clips:
         if logger: logger(f"🎬 Sending {len(all_clips)} total timestamp(s) to FFmpeg...")
