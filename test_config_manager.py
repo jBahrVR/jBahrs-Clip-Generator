@@ -1,7 +1,7 @@
 import sys
 import os
 
-from config_manager import get_default_config
+from config_manager import get_default_config, save_config, CONFIG_FILE
 
 def test_get_default_config():
     config = get_default_config()
@@ -38,5 +38,27 @@ def test_get_default_config():
 
     print("All tests for get_default_config passed!")
 
+def test_save_config_permissions():
+    config = get_default_config()
+
+    # Save the config
+    save_config(config)
+
+    # Check that the file exists
+    assert os.path.exists(CONFIG_FILE), "Config file was not created"
+
+    # Check file permissions
+    file_stat = os.stat(CONFIG_FILE)
+    mode = file_stat.st_mode
+
+    # Mask out everything except the owner permissions
+    owner_permissions = mode & 0o777
+
+    # The permissions should be 0o600 (-rw-------)
+    assert owner_permissions == 0o600, f"Expected permissions 0o600, but got {oct(owner_permissions)}"
+
+    print("All tests for test_save_config_permissions passed!")
+
 if __name__ == "__main__":
     test_get_default_config()
+    test_save_config_permissions()
