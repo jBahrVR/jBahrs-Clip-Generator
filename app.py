@@ -557,6 +557,7 @@ class ClipGenApp(ctk.CTk):
                 client = OpenAI(**client_args)
                 client.models.list() 
                 self.after(0, lambda: self.test_openai_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
+            except Exception:
             except Exception as e:
                 print(f"OpenAI API test failed: {e}")
                 self.after(0, lambda: self.test_openai_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
@@ -572,6 +573,7 @@ class ClipGenApp(ctk.CTk):
                 client = anthropic.Anthropic(api_key=key)
                 client.models.list() 
                 self.after(0, lambda: self.test_anthropic_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
+            except Exception:
             except Exception as e:
                 print(f"Anthropic API test failed: {e}")
                 self.after(0, lambda: self.test_anthropic_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
@@ -587,6 +589,7 @@ class ClipGenApp(ctk.CTk):
                 client = OpenAI(api_key=key, base_url="https://api.x.ai/v1")
                 client.models.list() 
                 self.after(0, lambda: self.test_grok_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
+            except Exception:
             except Exception as e:
                 print(f"Grok API test failed: {e}")
                 self.after(0, lambda: self.test_grok_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
@@ -602,6 +605,7 @@ class ClipGenApp(ctk.CTk):
                 genai.configure(api_key=key)
                 list(genai.list_models()) 
                 self.after(0, lambda: self.test_google_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
+            except Exception:
             except Exception as e:
                 print(f"Google API test failed: {e}")
                 self.after(0, lambda: self.test_google_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
@@ -910,6 +914,8 @@ class ClipGenApp(ctk.CTk):
                             with open(json_path, 'r', encoding='utf-8') as jf:
                                 jdata = json.load(jf)
                                 score = float(jdata.get("virality_score", 0))
+                        except Exception:
+                            pass
                         except Exception as e:
                             print(f"Error parsing json for score: {e}")
                 
@@ -1148,6 +1154,7 @@ class ClipGenApp(ctk.CTk):
         self.withdraw() 
         try:
             image = Image.open("app_icon.ico")
+        except Exception:
         except Exception as e:
             print(f"Error loading icon: {e}")
             image = Image.new('RGB', (64, 64), color=(31, 83, 141))
