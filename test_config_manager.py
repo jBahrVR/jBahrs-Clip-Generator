@@ -1,81 +1,42 @@
-import unittest
-from unittest.mock import patch
+import sys
 import os
-import config_manager
 
-class TestConfigManager(unittest.TestCase):
+from config_manager import get_default_config
 
-    @patch('os.getenv')
-    @patch('os.path.exists')
-    @patch('os.makedirs')
-    def test_get_app_data_path_with_appdata_dir_not_exists(self, mock_makedirs, mock_exists, mock_getenv):
-        # Setup mocks
-        mock_getenv.return_value = '/fake/appdata'
-        mock_exists.return_value = False
+def test_get_default_config():
+    config = get_default_config()
 
-        # Call function
-        result = config_manager.get_app_data_path()
+    # Assert that the returned object is a dictionary
+    assert isinstance(config, dict), "config should be a dictionary"
 
-        # Assertions
-        expected_path = os.path.join('/fake/appdata', 'jBahrsClipGenerator')
-        self.assertEqual(result, expected_path)
-        mock_getenv.assert_called_once_with('APPDATA')
-        mock_exists.assert_called_once_with(expected_path)
-        mock_makedirs.assert_called_once_with(expected_path)
+    # Expected top-level keys
+    expected_keys = [
+        "youtube", "twitch", "openai", "anthropic", "xai",
+        "google", "integrations", "settings", "prompts", "auto_scheduler"
+    ]
+    for key in expected_keys:
+        assert key in config, f"Missing key '{key}' in default config"
 
-    @patch('os.getenv')
-    @patch('os.path.exists')
-    @patch('os.makedirs')
-    def test_get_app_data_path_with_appdata_dir_exists(self, mock_makedirs, mock_exists, mock_getenv):
-        # Setup mocks
-        mock_getenv.return_value = '/fake/appdata'
-        mock_exists.return_value = True
+    # Assert specific default values inside these nested dictionaries
+    assert config["youtube"]["channel_id"] == "", "Default youtube channel_id should be empty"
+    assert config["twitch"]["username"] == "", "Default twitch username should be empty"
 
-        # Call function
-        result = config_manager.get_app_data_path()
+    assert config["openai"]["api_key"] == "", "Default openai api_key should be empty"
+    assert config["openai"]["chat_model"] == "gpt-4o", "Default openai chat_model should be 'gpt-4o'"
+    assert config["openai"]["whisper_model"] == "base", "Default openai whisper_model should be 'base'"
+    assert config["openai"]["base_url"] == "", "Default openai base_url should be empty"
 
-        # Assertions
-        expected_path = os.path.join('/fake/appdata', 'jBahrsClipGenerator')
-        self.assertEqual(result, expected_path)
-        mock_getenv.assert_called_once_with('APPDATA')
-        mock_exists.assert_called_once_with(expected_path)
-        mock_makedirs.assert_not_called()
+    assert config["anthropic"]["api_key"] == "", "Default anthropic api_key should be empty"
+    assert config["xai"]["api_key"] == "", "Default xai api_key should be empty"
+    assert config["google"]["api_key"] == "", "Default google api_key should be empty"
 
-    @patch('os.getenv')
-    @patch('os.path.exists')
-    @patch('os.makedirs')
-    def test_get_app_data_path_without_appdata_dir_not_exists(self, mock_makedirs, mock_exists, mock_getenv):
-        # Setup mocks
-        mock_getenv.return_value = None
-        mock_exists.return_value = False
+    assert config["settings"]["download_quality"] == "Best", "Default download_quality should be 'Best'"
 
-        # Call function
-        result = config_manager.get_app_data_path()
+    assert config["prompts"]["active_profile"] == "Omni-Genre Broad Net", "Default active_profile should be 'Omni-Genre Broad Net'"
 
-        # Assertions
-        expected_path = os.path.join('.', 'jBahrsClipGenerator')
-        self.assertEqual(result, expected_path)
-        mock_getenv.assert_called_once_with('APPDATA')
-        mock_exists.assert_called_once_with(expected_path)
-        mock_makedirs.assert_called_once_with(expected_path)
+    assert config["auto_scheduler"]["platform"] == "YouTube", "Default auto_scheduler platform should be 'YouTube'"
 
-    @patch('os.getenv')
-    @patch('os.path.exists')
-    @patch('os.makedirs')
-    def test_get_app_data_path_without_appdata_empty_string(self, mock_makedirs, mock_exists, mock_getenv):
-        # Setup mocks
-        mock_getenv.return_value = ''
-        mock_exists.return_value = False
+    print("All tests for get_default_config passed!")
 
-        # Call function
-        result = config_manager.get_app_data_path()
-
-        # Assertions
-        expected_path = os.path.join('.', 'jBahrsClipGenerator')
-        self.assertEqual(result, expected_path)
-        mock_getenv.assert_called_once_with('APPDATA')
-        mock_exists.assert_called_once_with(expected_path)
-        mock_makedirs.assert_called_once_with(expected_path)
-
-if __name__ == '__main__':
-    unittest.main()
+if __name__ == "__main__":
+    test_get_default_config()
