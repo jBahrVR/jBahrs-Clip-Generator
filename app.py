@@ -17,6 +17,7 @@ import watcher # type: ignore
 import editor # type: ignore
 import pystray # type: ignore
 import json
+import urllib.request
 from PIL import Image # type: ignore
 import logging
 from logging.handlers import RotatingFileHandler
@@ -42,6 +43,17 @@ class ClipGenApp(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
+        self._setup_sidebar()
+        self._setup_manual_frame()
+        self._setup_auto_frame()
+        self._setup_prompt_frame()
+        self._setup_settings_frame()
+        self._setup_gallery_frame()
+
+        self.load_prompt_data()
+        self.show_manual_frame()
+
+    def _setup_sidebar(self):
         # ==================== SIDEBAR ====================
         self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color="#1e1e1e")
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
@@ -89,6 +101,7 @@ class ClipGenApp(ctk.CTk):
         self.version_label = ctk.CTkLabel(self.sidebar_frame, text="v1.2.1 Creator Edition", font=ctk.CTkFont(size=10), text_color="gray")
         self.version_label.grid(row=13, column=0, padx=20, pady=10, sticky="s")
 
+    def _setup_manual_frame(self):
         # ==================== MANUAL FRAME ====================
         self.manual_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.manual_frame.grid_columnconfigure(0, weight=1)
@@ -103,6 +116,7 @@ class ClipGenApp(ctk.CTk):
 
         self.url_input = ctk.CTkEntry(self.input_card, placeholder_text="Paste URL or Select Local File(s)...", height=45, border_width=0)
         self.url_input.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
+        self.url_input.bind("<Return>", self.start_manual_process)
         
         self.process_btn = ctk.CTkButton(self.input_card, text="Process Queue", height=45, text_color="#FFFFFF", font=ctk.CTkFont(weight="bold"), command=self.start_manual_process)
         self.process_btn.grid(row=0, column=1, padx=(0, 10), pady=20)
@@ -135,6 +149,7 @@ class ClipGenApp(ctk.CTk):
         self.console_box.tag_config("ai", foreground="#00d2ff")
         self.console_box.tag_config("ffmpeg", foreground="#f39c12")
 
+    def _setup_auto_frame(self):
         # ==================== AUTO FRAME ====================
         self.auto_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.auto_frame.grid_columnconfigure(0, weight=1)
@@ -198,6 +213,7 @@ class ClipGenApp(ctk.CTk):
         self.auto_console.tag_config("ai", foreground="#00d2ff")
         self.auto_console.tag_config("ffmpeg", foreground="#f39c12")
 
+    def _setup_prompt_frame(self):
         # ==================== PROMPT MANAGER FRAME ====================
         self.prompt_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.prompt_frame.grid_columnconfigure(0, weight=1)
@@ -230,6 +246,7 @@ class ClipGenApp(ctk.CTk):
         self.save_prompt_btn = ctk.CTkButton(self.prompt_editor_card, text="Save Current Prompt", height=40, font=ctk.CTkFont(weight="bold"), command=self.save_current_prompt)
         self.save_prompt_btn.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="e")
 
+    def _setup_settings_frame(self):
         # ==================== SETTINGS FRAME ====================
         self.settings_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.settings_frame.grid_columnconfigure(0, weight=1)
@@ -245,19 +262,19 @@ class ClipGenApp(ctk.CTk):
         ctk.CTkLabel(self.api_card, text="Authentication & AI Models", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
 
         ctk.CTkLabel(self.api_card, text="YouTube Channel ID:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=5, sticky="e")
-        self.yt_id_entry = ctk.CTkEntry(self.api_card, height=35)
+        self.yt_id_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="e.g. UC_x5XG1OV2P6uZZ5FSM9Ttw")
         self.yt_id_entry.grid(row=1, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
         self.yt_id_entry.insert(0, self.config.get('youtube', {}).get('channel_id', ''))
 
         ctk.CTkLabel(self.api_card, text="Twitch Username:", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="e")
-        self.twitch_entry = ctk.CTkEntry(self.api_card, height=35)
+        self.twitch_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="e.g. ninja")
         self.twitch_entry.grid(row=2, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
         self.twitch_entry.insert(0, self.config.get('twitch', {}).get('username', ''))
 
         self.api_link_label = ctk.CTkLabel(self.api_card, text="OpenAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
         self.api_link_label.grid(row=3, column=0, padx=20, pady=5, sticky="e")
         self.api_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://platform.openai.com/api-keys"))
-        self.openai_entry = ctk.CTkEntry(self.api_card, show="•", height=35)
+        self.openai_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="sk-proj-...")
         self.openai_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.openai_entry.insert(0, self.config.get('openai', {}).get('api_key', ''))
         self.test_openai_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_openai_key)
@@ -271,7 +288,7 @@ class ClipGenApp(ctk.CTk):
         self.anthropic_link_label = ctk.CTkLabel(self.api_card, text="Anthropic API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
         self.anthropic_link_label.grid(row=5, column=0, padx=20, pady=5, sticky="e")
         self.anthropic_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://console.anthropic.com/settings/keys"))
-        self.anthropic_entry = ctk.CTkEntry(self.api_card, show="•", height=35)
+        self.anthropic_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="sk-ant-...")
         self.anthropic_entry.grid(row=5, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.anthropic_entry.insert(0, self.config.get('anthropic', {}).get('api_key', ''))
         self.test_anthropic_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_anthropic_key)
@@ -280,7 +297,7 @@ class ClipGenApp(ctk.CTk):
         self.grok_link_label = ctk.CTkLabel(self.api_card, text="Grok/xAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
         self.grok_link_label.grid(row=6, column=0, padx=20, pady=5, sticky="e")
         self.grok_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://console.x.ai/"))
-        self.grok_entry = ctk.CTkEntry(self.api_card, show="•", height=35)
+        self.grok_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="xai-...")
         self.grok_entry.grid(row=6, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.grok_entry.insert(0, self.config.get('xai', {}).get('api_key', ''))
         self.test_grok_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_grok_key)
@@ -289,14 +306,14 @@ class ClipGenApp(ctk.CTk):
         self.google_link_label = ctk.CTkLabel(self.api_card, text="Google API Key (Get Free):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
         self.google_link_label.grid(row=7, column=0, padx=20, pady=5, sticky="e")
         self.google_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://aistudio.google.com/app/apikey"))
-        self.google_entry = ctk.CTkEntry(self.api_card, show="•", height=35)
+        self.google_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="AIzaSy...")
         self.google_entry.grid(row=7, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.google_entry.insert(0, self.config.get('google', {}).get('api_key', ''))
         self.test_google_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_google_key)
         self.test_google_btn.grid(row=7, column=2, padx=(0, 20), pady=5, sticky="e")
 
         ctk.CTkLabel(self.api_card, text="Discord Webhook URL (Optional):", font=ctk.CTkFont(weight="bold")).grid(row=8, column=0, padx=20, pady=5, sticky="e")
-        self.discord_entry = ctk.CTkEntry(self.api_card, height=35)
+        self.discord_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="https://discord.com/api/webhooks/...")
         self.discord_entry.grid(row=8, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.discord_entry.insert(0, self.config.get('integrations', {}).get('discord_webhook', ''))
         self.test_discord_btn = ctk.CTkButton(self.api_card, text="Test Alert", width=80, command=self.test_discord_webhook)
@@ -332,14 +349,14 @@ class ClipGenApp(ctk.CTk):
         self.quality_menu.set(self.config.get('settings', {}).get('download_quality', 'Best'))
 
         ctk.CTkLabel(self.paths_card, text="Raw VODs Folder:", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="e")
-        self.vod_dir_entry = ctk.CTkEntry(self.paths_card, height=35)
+        self.vod_dir_entry = ctk.CTkEntry(self.paths_card, height=35, placeholder_text="C:\\Videos\\Raw")
         self.vod_dir_entry.grid(row=2, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.vod_dir_entry.insert(0, self.config.get('settings', {}).get('download_dir', ''))
         self.vod_browse_btn = ctk.CTkButton(self.paths_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.vod_dir_entry))
         self.vod_browse_btn.grid(row=2, column=2, padx=(0, 20), pady=5, sticky="e")
 
         ctk.CTkLabel(self.paths_card, text="Generated Clips Folder:", font=ctk.CTkFont(weight="bold")).grid(row=3, column=0, padx=20, pady=5, sticky="e")
-        self.clip_dir_entry = ctk.CTkEntry(self.paths_card, height=35)
+        self.clip_dir_entry = ctk.CTkEntry(self.paths_card, height=35, placeholder_text="C:\\Videos\\Clips")
         self.clip_dir_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.clip_dir_entry.insert(0, self.config.get('settings', {}).get('clips_dir', ''))
         self.clip_browse_btn = ctk.CTkButton(self.paths_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.clip_dir_entry))
@@ -443,6 +460,7 @@ class ClipGenApp(ctk.CTk):
         self.save_btn = ctk.CTkButton(self.settings_frame, text="Save Settings", height=45, font=ctk.CTkFont(weight="bold"), command=self.save_settings)
         self.save_btn.grid(row=5, column=0, padx=30, pady=20, sticky="e")
 
+    def _setup_gallery_frame(self):
         # ==================== GALLERY FRAME ====================
         self.gallery_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.gallery_frame.grid_columnconfigure(1, weight=1)
@@ -492,7 +510,6 @@ class ClipGenApp(ctk.CTk):
         self.detail_title = ctk.CTkLabel(self.details_card, text="Select a clip to view details", font=ctk.CTkFont(size=20, weight="bold"))
         self.detail_title.grid(row=0, column=0, padx=20, pady=20, sticky="w")
 
-        # THE FINAL FIX: Moving text_color to the widget level, outside of the CTkFont bounds!
         self.detail_score = ctk.CTkLabel(self.details_card, text="Score: --/10", font=ctk.CTkFont(size=16), text_color="#2ecc71")
         self.detail_score.grid(row=1, column=0, padx=20, pady=5, sticky="w")
 
@@ -512,9 +529,6 @@ class ClipGenApp(ctk.CTk):
 
         self.open_folder_btn = ctk.CTkButton(self.gallery_btns_frame, text="📁 Open Folder", height=50, font=ctk.CTkFont(weight="bold"), state="disabled", fg_color="#2b2b2b", hover_color="#3b3b3b")
         self.open_folder_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
-
-        self.load_prompt_data()
-        self.show_manual_frame()
 
     def _init_logging(self):
         log_dir = os.path.join(config_manager.get_app_data_path(), "logs")
@@ -613,8 +627,6 @@ class ClipGenApp(ctk.CTk):
             try:
                 if not url.startswith("https://discord.com/"):
                     raise ValueError("Invalid Discord URL")
-                import urllib.request
-                import json
                 headers = {
                     "Content-Type": "application/json",
                     "User-Agent": "jBahrsClipGen/1.2.1"
@@ -641,8 +653,6 @@ class ClipGenApp(ctk.CTk):
             try:
                 if not url.startswith("https://discord.com/"):
                     return
-                import urllib.request
-                import json
                 payload = {
                     "content": None,
                     "embeds": [{
@@ -1047,7 +1057,7 @@ class ClipGenApp(ctk.CTk):
         self.cancel_btn.configure(state="disabled", text="Cancelling...")
         self.log_to_console("🛑 Cancellation requested. Aborting as soon as possible...", source="manual")
 
-    def start_manual_process(self):
+    def start_manual_process(self, event=None):
         input_val = self.url_input.get().strip()
         if input_val:
             self.cancel_requested = False

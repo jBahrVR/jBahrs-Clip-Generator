@@ -1,4 +1,5 @@
 import os
+import stat
 import json
 import shutil
 
@@ -114,7 +115,11 @@ def load_config():
 
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, 'r') as f:
-            cfg = json.load(f)
+            try:
+                cfg = json.load(f)
+            except json.JSONDecodeError as e:
+                print(f"Failed to decode config file: {e}")
+                return get_default_config()
             
             # Inject new settings if they don't exist in saved config
             settings = cfg.setdefault("settings", {})
@@ -149,5 +154,16 @@ def load_config():
     return get_default_config()
 
 def save_config(config):
-    with open(CONFIG_FILE, 'w') as f:
+    # Open file descriptor with restrictive permissions
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    mode = stat.S_IRUSR | stat.S_IWUSR
+
+    fd = os.open(CONFIG_FILE, flags, mode)
+    with os.fdopen(fd, 'w') as f:
         json.dump(config, f, indent=4)
+
+    # Ensure existing files also have restricted permissions
+    try:
+        os.chmod(CONFIG_FILE, mode)
+    except OSError:
+        pass

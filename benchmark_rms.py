@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np # type: ignore
 import time
 
 def analyze_audio_peaks_original(audio_array, segments, sample_rate=16000, peak_detection=True, combat_detection=True):
