@@ -26,7 +26,7 @@ class WhisperProgressStream(io.StringIO):
                 if self.logger:
                     self.logger(f"⏳ Processed up to {timestamp}: {clean_msg[:40]}...")
             self.counter += 1
-        super().write(s)
+        return super().write(s)
 
     def flush(self):
         pass
@@ -151,8 +151,8 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
             device_name = torch.cuda.get_device_name(0).lower()
             if "amd" in device_name or "radeon" in device_name:
                 gpu_codec = "h264_amf"
-    except Exception:
-        pass
+    except Exception as e:
+        if logger: logger(f"⚠️ Failed to detect GPU for hardware encoding: {e}")
 
     video_codec = gpu_codec if hardware_encoding else "libx264"
     audio_codec_flags = ["-ac", "2", "-c:a", "aac", "-b:a", "192k"] if audio_downmix else ["-c:a", "copy"]
