@@ -115,7 +115,11 @@ def load_config():
 
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, 'r') as f:
-            cfg = json.load(f)
+            try:
+                cfg = json.load(f)
+            except json.JSONDecodeError as e:
+                print(f"Failed to decode config file: {e}")
+                return get_default_config()
             
             # Inject new settings if they don't exist in saved config
             settings = cfg.setdefault("settings", {})

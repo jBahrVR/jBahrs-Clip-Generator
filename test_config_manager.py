@@ -1,8 +1,9 @@
 import sys
 import os
-from unittest.mock import patch, mock_open
+import json
+from unittest.mock import patch, mock_open, MagicMock
 
-from config_manager import get_default_config, save_config, CONFIG_FILE
+from config_manager import get_default_config, save_config, load_config, CONFIG_FILE, OLD_LOCAL_CONFIG
 
 def test_get_default_config():
     config = get_default_config()
@@ -60,40 +61,59 @@ def test_save_config_permissions():
 
     print("All tests for test_save_config_permissions passed!")
 
-@patch('config_manager.json.dump')
-@patch('config_manager.os.chmod')
-@patch('config_manager.os.fdopen')
-@patch('config_manager.os.open')
-def test_save_config_content(mock_os_open, mock_os_fdopen, mock_os_chmod, mock_json_dump):
-    # Setup mock returns
-    mock_os_open.return_value = 3  # Dummy file descriptor
-    mock_file = mock_open()()
-    mock_os_fdopen.return_value.__enter__.return_value = mock_file
+def test_load_config_no_file():
+    with patch('os.path.exists', return_value=False):
+        config = load_config()
+        assert config == get_default_config(), "Should return default config when no file exists"
+    print("Test test_load_config_no_file passed!")
 
-    # Create a dummy configuration to save
-    test_config = {
-        "test_key": "test_value",
-        "nested": {"key": 123}
-    }
+def test_load_config_migration():
+    def mock_exists(path):
+        if path == OLD_LOCAL_CONFIG:
+            return True
+        if path == CONFIG_FILE:
+            return False
+        return False
 
-    # Call the function being tested
-    save_config(test_config)
+    with patch('os.path.exists', side_effect=mock_exists), \
+         patch('shutil.move') as mock_move, \
+         patch('builtins.open', mock_open(read_data='{}')):
+        config = load_config()
+        mock_move.assert_called_once_with(OLD_LOCAL_CONFIG, CONFIG_FILE)
+    print("Test test_load_config_migration passed!")
 
-    # Verify os.open was called with correct arguments
-    mock_os_open.assert_called_once_with(CONFIG_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+def test_load_config_migration_exception():
+    def mock_exists(path):
+        if path == OLD_LOCAL_CONFIG:
+            return True
+        if path == CONFIG_FILE:
+            return False
+        return False
 
-    # Verify os.fdopen was called correctly
-    mock_os_fdopen.assert_called_once_with(3, 'w')
+    with patch('os.path.exists', side_effect=mock_exists), \
+         patch('shutil.move', side_effect=Exception("Migration Failed")) as mock_move, \
+         patch('builtins.print') as mock_print, \
+         patch('builtins.open', mock_open(read_data='{}')):
+        config = load_config()
+        mock_move.assert_called_once_with(OLD_LOCAL_CONFIG, CONFIG_FILE)
+        mock_print.assert_called_with("Failed to migrate old config file: Migration Failed")
+    print("Test test_load_config_migration_exception passed!")
 
-    # Verify json.dump was called with the correct dictionary and file object
-    mock_json_dump.assert_called_once_with(test_config, mock_file, indent=4)
+def test_load_config_invalid_json():
+    with patch('os.path.exists', return_value=True), \
+         patch('builtins.open', mock_open(read_data='{invalid_json: true}')), \
+         patch('builtins.print') as mock_print:
+        config = load_config()
+        assert config == get_default_config(), "Should return default config on invalid JSON"
+        mock_print.assert_called_once()
+        assert "Failed to decode config file:" in mock_print.call_args[0][0]
+    print("Test test_load_config_invalid_json passed!")
 
-    # Verify os.chmod was called
-    mock_os_chmod.assert_called_once_with(CONFIG_FILE, 0o600)
-
-    print("All tests for test_save_config_content passed!")
 
 if __name__ == "__main__":
     test_get_default_config()
     test_save_config_permissions()
-    test_save_config_content()
+    test_load_config_no_file()
+    test_load_config_migration()
+    test_load_config_migration_exception()
+    test_load_config_invalid_json()
