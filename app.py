@@ -432,10 +432,11 @@ class ClipGenApp(ctk.CTk):
         self.help_card.grid(row=4, column=0, padx=30, pady=(20, 0), sticky="ew")
         
         help_text = (
-            "🛠️ v1.1.6 Quick Setup & Troubleshooting:\n\n"
+            "🚀 Quick Start Guide:\n\n"
             "1. AI Engines: Gemini 2.5 Flash is highly recommended for streams over 1 hour.\n"
-            "2. Hardware: NVIDIA GPUs (CUDA) process audio infinitely faster than standard CPUs.\n"
-            "3. Vertical Generation uses FFmpeg complex filtergraphs. Custom Coordinates apply to 1080p source video."
+            "2. Hardware: NVIDIA GPUs (CUDA) process audio infinitely faster than CPU-only systems.\n"
+            "3. Vertical Generation: Custom Coordinates are based on a 1080p source video size.\n\n"
+            "⚠️ IMPORTANT: Make sure to click 'Save Settings' after making any changes above!"
         )
         self.help_label = ctk.CTkLabel(self.help_card, text=help_text, justify="left", font=ctk.CTkFont(size=12), padx=20, pady=20)
         self.help_label.pack(anchor="w")
@@ -465,14 +466,31 @@ class ClipGenApp(ctk.CTk):
         self.sort_menu.pack(side="left", fill="x", expand=True)
         self.sort_menu.set("Date (Newest)")
 
+        # --- Filters ---
+        self.filter_frame = ctk.CTkFrame(self.gallery_frame, fg_color="transparent")
+        self.filter_frame.grid(row=2, column=0, padx=(30, 10), pady=(0, 5), sticky="ew")
+        
+        ctk.CTkLabel(self.filter_frame, text="Type:", font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 5))
+        self.type_filter_menu = ctk.CTkOptionMenu(self.filter_frame, values=["All", "Horizontal", "Vertical"], width=100, command=lambda _: self.populate_gallery())
+        self.type_filter_menu.pack(side="left", padx=(0, 10))
+        self.type_filter_menu.set("All")
+        
+        ctk.CTkLabel(self.filter_frame, text="Min Score:", font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 5))
+        self.score_filter_menu = ctk.CTkOptionMenu(self.filter_frame, values=["All", "3+", "5+", "7+", "8+", "9+"], width=80, command=lambda _: self.populate_gallery())
+        self.score_filter_menu.pack(side="left")
+        self.score_filter_menu.set("All")
+
+        self.clip_listbox = ctk.CTkScrollableFrame(self.gallery_frame, width=300, corner_radius=15)
+        self.clip_listbox.grid(row=3, column=0, padx=(30, 10), pady=10, sticky="nsew")
+
         self.refresh_gallery_btn = ctk.CTkButton(self.gallery_frame, text="🔄 Refresh List", command=self.populate_gallery)
-        self.refresh_gallery_btn.grid(row=3, column=0, padx=(30, 10), pady=(0, 10), sticky="ew")
+        self.refresh_gallery_btn.grid(row=4, column=0, padx=(30, 10), pady=(0, 10), sticky="ew")
 
         self.delete_marked_btn = ctk.CTkButton(self.gallery_frame, text="🗑️ Delete Marked Clips", fg_color="#c0392b", hover_color="#922b21", command=self.confirm_delete_marked)
-        self.delete_marked_btn.grid(row=4, column=0, padx=(30, 10), pady=(0, 20), sticky="ew")
+        self.delete_marked_btn.grid(row=5, column=0, padx=(30, 10), pady=(0, 20), sticky="ew")
 
         self.details_card = ctk.CTkFrame(self.gallery_frame, corner_radius=15)
-        self.details_card.grid(row=1, column=1, rowspan=4, padx=(10, 30), pady=(10, 20), sticky="nsew")
+        self.details_card.grid(row=1, column=1, rowspan=5, padx=(10, 30), pady=(10, 20), sticky="nsew")
         self.details_card.grid_columnconfigure(0, weight=1)
 
         self.detail_title = ctk.CTkLabel(self.details_card, text="Select a clip to view details", font=ctk.CTkFont(size=20, weight="bold"))
@@ -489,8 +507,15 @@ class ClipGenApp(ctk.CTk):
         self.detail_thumbnail = ctk.CTkLabel(self.details_card, text="")
         self.detail_thumbnail.grid(row=3, column=0, padx=20, pady=5)
 
-        self.play_clip_btn = ctk.CTkButton(self.details_card, text="▶️ Play Clip", height=50, font=ctk.CTkFont(weight="bold"), state="disabled")
-        self.play_clip_btn.grid(row=4, column=0, padx=20, pady=20, sticky="ew")
+        self.gallery_btns_frame = ctk.CTkFrame(self.details_card, fg_color="transparent")
+        self.gallery_btns_frame.grid(row=4, column=0, padx=20, pady=20, sticky="ew")
+        self.gallery_btns_frame.grid_columnconfigure((0, 1), weight=1)
+
+        self.play_clip_btn = ctk.CTkButton(self.gallery_btns_frame, text="▶️ Play Clip", height=50, font=ctk.CTkFont(weight="bold"), state="disabled")
+        self.play_clip_btn.grid(row=0, column=0, padx=(0, 5), sticky="ew")
+
+        self.open_folder_btn = ctk.CTkButton(self.gallery_btns_frame, text="📁 Open Folder", height=50, font=ctk.CTkFont(weight="bold"), state="disabled", fg_color="#2b2b2b", hover_color="#3b3b3b")
+        self.open_folder_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
         self.load_prompt_data()
         self.show_manual_frame()
@@ -589,15 +614,21 @@ class ClipGenApp(ctk.CTk):
                 import urllib.request
                 import urllib.error
                 import json
-                req = urllib.request.Request(url, method="POST", headers={"Content-Type": "application/json"})
+                headers = {
+                    "Content-Type": "application/json",
+                    "User-Agent": "jBahrsClipGen/1.2.1"
+                }
                 data = json.dumps({"content": "✅ **Test Alert from jBahr's Clip Generator!** The Webhook link is alive."}).encode('utf-8')
-                with urllib.request.urlopen(req, data=data) as response:
+                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                
+                with urllib.request.urlopen(req) as response:
                     if response.status in [200, 204]:
                         self.after(0, lambda: self.test_discord_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
                         self.after(3000, lambda: self.test_discord_btn.configure(text="Test Alert", fg_color=["#3a7ebf", "#1f538d"]))
                         return
-                raise ValueError("Bad response")
-            except Exception:
+                raise ValueError(f"Bad response: {response.status}")
+            except Exception as e:
+                self.log_to_console(f"❌ Discord Test Failed: {str(e)}")
                 self.after(0, lambda: self.test_discord_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
                 self.after(3000, lambda: self.test_discord_btn.configure(text="Test Alert", fg_color=["#3a7ebf", "#1f538d"]))
         threading.Thread(target=run_test, daemon=True).start()
@@ -617,8 +648,13 @@ class ClipGenApp(ctk.CTk):
                         "color": 3066993
                     }]
                 }
-                req = urllib.request.Request(url, method="POST", headers={"Content-Type": "application/json"})
-                with urllib.request.urlopen(req, data=json.dumps(payload).encode('utf-8')) as _:
+                headers = {
+                    "Content-Type": "application/json",
+                    "User-Agent": "jBahrsClipGen/1.2.1"
+                }
+                data = json.dumps(payload).encode('utf-8')
+                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                with urllib.request.urlopen(req) as _:
                     pass
             except Exception as e:
                 self.log_to_console(f"❌ Discord Webhook Failed: {e}")
@@ -886,8 +922,23 @@ class ClipGenApp(ctk.CTk):
         elif sort_mode == "Virality (Low)":
             clip_data.sort(key=lambda x: (x["score"], -x["ctime"]))
 
+        # Apply Filters
+        type_filter = self.type_filter_menu.get()
+        score_filter = self.score_filter_menu.get()
+        min_score = 0
+        if score_filter != "All":
+            min_score = int(score_filter.replace("+", ""))
+
         for item in clip_data:
             file = item["filename"]
+            
+            # Filter by Orientation
+            is_vertical = "_vertical" in str(file)
+            if type_filter == "Horizontal" and is_vertical: continue
+            if type_filter == "Vertical" and not is_vertical: continue
+
+            # Filter by Score
+            if float(item["score"]) < min_score: continue
             row_frame = ctk.CTkFrame(self.clip_listbox, fg_color="transparent")
             row_frame.pack(fill="x", pady=2, padx=5)
             
@@ -928,6 +979,7 @@ class ClipGenApp(ctk.CTk):
             self.detail_reasoning.configure(state="disabled")
             self.detail_thumbnail.configure(image=None) # type: ignore
             self.play_clip_btn.configure(state="disabled")
+            self.open_folder_btn.configure(state="disabled")
 
     def load_clip_details(self, filename, directory):
         self.detail_title.configure(text=filename)
@@ -975,6 +1027,7 @@ class ClipGenApp(ctk.CTk):
 
         if hasattr(os, 'startfile'):
             self.play_clip_btn.configure(state="normal", command=lambda: os.startfile(mp4_path)) # type: ignore
+            self.open_folder_btn.configure(state="normal", command=lambda: subprocess.run(['explorer', '/select,', os.path.abspath(mp4_path)]))
 
     # --- Processing Engine ---
     def browse_local_file(self):
