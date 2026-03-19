@@ -6,7 +6,6 @@ import whisper # type: ignore
 import config_manager # type: ignore
 from openai import OpenAI # type: ignore
 import numpy as np # type: ignore
-import sys
 import io
 import contextlib
 
