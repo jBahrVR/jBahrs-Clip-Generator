@@ -396,9 +396,10 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
     all_clips = []
     
     # We now build ONE massive transcript to feed to the modern large-context AI models
-    full_transcript = ""
-    for seg in segments:
-        full_transcript += f"[{seg['start']:.1f}s - {seg['end']:.1f}s] {seg['text'].strip()}\n"
+    full_transcript = "".join(
+        f"[{seg['start']:.1f}s - {seg['end']:.1f}s] {seg['text'].strip()}\n"
+        for seg in segments
+    )
 
     if is_gemini_model and not is_openrouter:
         if not HAS_GEMINI:
