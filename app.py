@@ -17,6 +17,7 @@ import watcher # type: ignore
 import editor # type: ignore
 import pystray # type: ignore
 import json
+import urllib.request
 from PIL import Image # type: ignore
 import logging
 from logging.handlers import RotatingFileHandler
@@ -617,8 +618,6 @@ class ClipGenApp(ctk.CTk):
             try:
                 if not url.startswith("https://discord.com/"):
                     raise ValueError("Invalid Discord URL")
-                import urllib.request
-                import json
                 headers = {
                     "Content-Type": "application/json",
                     "User-Agent": "jBahrsClipGen/1.2.1"
@@ -645,8 +644,6 @@ class ClipGenApp(ctk.CTk):
             try:
                 if not url.startswith("https://discord.com/"):
                     return
-                import urllib.request
-                import json
                 payload = {
                     "content": None,
                     "embeds": [{
