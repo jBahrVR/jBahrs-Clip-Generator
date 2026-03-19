@@ -533,7 +533,7 @@ class ClipGenApp(ctk.CTk):
                 client = OpenAI(**client_args)
                 client.models.list() 
                 self.after(0, lambda: self.test_openai_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
-            except:
+            except Exception as e:
                 self.after(0, lambda: self.test_openai_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
             self.after(3000, lambda: self.test_openai_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
         threading.Thread(target=run_test, daemon=True).start()
@@ -547,7 +547,7 @@ class ClipGenApp(ctk.CTk):
                 client = anthropic.Anthropic(api_key=key)
                 client.models.list() 
                 self.after(0, lambda: self.test_anthropic_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
-            except:
+            except Exception as e:
                 self.after(0, lambda: self.test_anthropic_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
             self.after(3000, lambda: self.test_anthropic_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
         threading.Thread(target=run_test, daemon=True).start()
@@ -561,7 +561,7 @@ class ClipGenApp(ctk.CTk):
                 client = OpenAI(api_key=key, base_url="https://api.x.ai/v1")
                 client.models.list() 
                 self.after(0, lambda: self.test_grok_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
-            except:
+            except Exception as e:
                 self.after(0, lambda: self.test_grok_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
             self.after(3000, lambda: self.test_grok_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
         threading.Thread(target=run_test, daemon=True).start()
@@ -575,7 +575,7 @@ class ClipGenApp(ctk.CTk):
                 genai.configure(api_key=key)
                 list(genai.list_models()) 
                 self.after(0, lambda: self.test_google_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
-            except:
+            except Exception as e:
                 self.after(0, lambda: self.test_google_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
             self.after(3000, lambda: self.test_google_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
         threading.Thread(target=run_test, daemon=True).start()
@@ -597,7 +597,7 @@ class ClipGenApp(ctk.CTk):
                         self.after(3000, lambda: self.test_discord_btn.configure(text="Test Alert", fg_color=["#3a7ebf", "#1f538d"]))
                         return
                 raise ValueError("Bad response")
-            except Exception:
+            except Exception as e:
                 self.after(0, lambda: self.test_discord_btn.configure(text="❌ Invalid", fg_color="#c0392b"))
                 self.after(3000, lambda: self.test_discord_btn.configure(text="Test Alert", fg_color=["#3a7ebf", "#1f538d"]))
         threading.Thread(target=run_test, daemon=True).start()
@@ -675,7 +675,7 @@ class ClipGenApp(ctk.CTk):
             crash_log_path = os.path.join(config_manager.get_app_data_path(), "app_crash_log.txt")
             with open(crash_log_path, "a", encoding="utf-8") as f:
                 f.write(f"[{timestamp}] {text}\n")
-        except Exception:
+        except Exception as e:
             pass
 
     def browse_folder(self, entry_widget):
@@ -867,7 +867,7 @@ class ClipGenApp(ctk.CTk):
                             with open(json_path, 'r', encoding='utf-8') as jf:
                                 jdata = json.load(jf)
                                 score = float(jdata.get("virality_score", 0))
-                        except:
+                        except Exception as e:
                             pass
                 
                 clip_data.append({
@@ -947,7 +947,7 @@ class ClipGenApp(ctk.CTk):
                     reasoning = data.get("reasoning", "No reasoning provided by AI.")
                     self.detail_score.configure(text=f"Virality Score: {score}/10")
                     self.detail_reasoning.insert("1.0", reasoning)
-            except Exception:
+            except Exception as e:
                 self.detail_score.configure(text="Score: N/A")
                 self.detail_reasoning.insert("1.0", "Error reading metadata.")
         else:
@@ -968,7 +968,7 @@ class ClipGenApp(ctk.CTk):
                 new_w, new_h = int(width * ratio), int(height * ratio)
                 large_clip_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(new_w, new_h))
                 self.detail_thumbnail.configure(image=large_clip_img)
-            except Exception:
+            except Exception as e:
                 self.detail_thumbnail.configure(image=None) # type: ignore
         else:
             self.detail_thumbnail.configure(image=None) # type: ignore
@@ -1088,7 +1088,7 @@ class ClipGenApp(ctk.CTk):
         self.withdraw() 
         try:
             image = Image.open("app_icon.ico")
-        except:
+        except Exception as e:
             image = Image.new('RGB', (64, 64), color=(31, 83, 141))
 
         menu = pystray.Menu(
