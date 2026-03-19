@@ -119,11 +119,12 @@ def extract_audio_hidden(file_path, sr=16000):
     
     startupinfo = _get_startupinfo()
 
-    out = subprocess.run(cmd, capture_output=True, startupinfo=startupinfo)
-    if out.returncode != 0:
-        raise RuntimeError(f"FFmpeg audio extraction failed: {out.stderr.decode()}")
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=startupinfo)
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"FFmpeg audio extraction failed: {stderr.decode()}")
         
-    return np.frombuffer(out.stdout, np.int16).flatten().astype(np.float32) / 32768.0
+    return np.frombuffer(stdout, np.int16).flatten().astype(np.float32) / 32768.0
 
 def _get_startupinfo():
     """Returns the startupinfo configuration to hide the FFmpeg command window on Windows."""
