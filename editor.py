@@ -66,7 +66,7 @@ def analyze_audio_peaks(audio_array, segments, sample_rate=16000, peak_detection
         prefix_tags = []
 
         # Calculate global RMS once to use as base if needed
-        rms = None
+        rms = 0.0
         if peak_detection or combat_detection:
             rms = np.sqrt(np.mean(chunk**2))
 
