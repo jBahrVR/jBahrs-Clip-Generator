@@ -45,13 +45,13 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
     if auth_browser and auth_browser != "None":
         cmd.extend(["--cookies-from-browser", auth_browser])
         
-    # Add the URL to the very end of the command
-    cmd.append(url)
-
     if not force_manual and video_type == "Livestreams Only":
         if logger_callback: 
             logger_callback("🔍 Applying 'Livestreams Only' filter...")
         cmd.extend(["--match-filter", "live_status=?was_live"])
+
+    # Add the URL to the very end of the command
+    cmd.extend(["--", url])
 
     startupinfo = None
     if os.name == 'nt' and hasattr(subprocess, 'STARTUPINFO'):
@@ -156,8 +156,8 @@ def main(logger_callback=None):
         YTDLP_PATH,
         "--flat-playlist",
         "--print", "id",
-        "--max-downloads", "1", 
-        target_url
+        "--max-downloads", "1",
+        "--", target_url
     ]
     
     startupinfo = None
