@@ -46,6 +46,7 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
         cmd.extend(["--cookies-from-browser", auth_browser])
         
     # Add the URL to the very end of the command
+    cmd.append("--")
     cmd.append(url)
 
     if not force_manual and video_type == "Livestreams Only":
@@ -157,6 +158,7 @@ def main(logger_callback=None):
         "--flat-playlist",
         "--print", "id",
         "--max-downloads", "1", 
+        "--",
         target_url
     ]
     

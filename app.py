@@ -712,7 +712,7 @@ class ClipGenApp(ctk.CTk):
                 if hasattr(subprocess, 'SW_HIDE'):
                     startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
 
-            cmd = [watcher.YTDLP_PATH, "--get-id", url]
+            cmd = [watcher.YTDLP_PATH, "--get-id", "--", url]
             result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
             return result.stdout.strip()
         except Exception as e:
