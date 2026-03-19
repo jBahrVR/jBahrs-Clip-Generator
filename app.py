@@ -717,7 +717,7 @@ class ClipGenApp(ctk.CTk):
             crash_log_path = os.path.join(config_manager.get_app_data_path(), "app_crash_log.txt")
             with open(crash_log_path, "a", encoding="utf-8") as f:
                 f.write(f"[{timestamp}] {text}\n")
-        except Exception:
+        except Exception as e:
             pass
 
     def browse_folder(self, entry_widget):
@@ -1005,7 +1005,7 @@ class ClipGenApp(ctk.CTk):
                     reasoning = data.get("reasoning", "No reasoning provided by AI.")
                     self.detail_score.configure(text=f"Virality Score: {score}/10")
                     self.detail_reasoning.insert("1.0", reasoning)
-            except Exception:
+            except Exception as e:
                 self.detail_score.configure(text="Score: N/A")
                 self.detail_reasoning.insert("1.0", "Error reading metadata.")
         else:
@@ -1026,7 +1026,7 @@ class ClipGenApp(ctk.CTk):
                 new_w, new_h = int(width * ratio), int(height * ratio)
                 large_clip_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(new_w, new_h))
                 self.detail_thumbnail.configure(image=large_clip_img)
-            except Exception:
+            except Exception as e:
                 self.detail_thumbnail.configure(image=None) # type: ignore
         else:
             self.detail_thumbnail.configure(image=None) # type: ignore
