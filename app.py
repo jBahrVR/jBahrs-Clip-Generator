@@ -103,6 +103,7 @@ class ClipGenApp(ctk.CTk):
 
         self.url_input = ctk.CTkEntry(self.input_card, placeholder_text="Paste URL or Select Local File(s)...", height=45, border_width=0)
         self.url_input.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
+        self.url_input.bind("<Return>", self.start_manual_process)
         
         self.process_btn = ctk.CTkButton(self.input_card, text="Process Queue", height=45, text_color="#FFFFFF", font=ctk.CTkFont(weight="bold"), command=self.start_manual_process)
         self.process_btn.grid(row=0, column=1, padx=(0, 10), pady=20)
@@ -1050,7 +1051,7 @@ class ClipGenApp(ctk.CTk):
         self.cancel_btn.configure(state="disabled", text="Cancelling...")
         self.log_to_console("🛑 Cancellation requested. Aborting as soon as possible...", source="manual")
 
-    def start_manual_process(self):
+    def start_manual_process(self, event=None):
         input_val = self.url_input.get().strip()
         if input_val:
             self.cancel_requested = False
