@@ -446,13 +446,10 @@ class ClipGenApp(ctk.CTk):
         # ==================== GALLERY FRAME ====================
         self.gallery_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.gallery_frame.grid_columnconfigure(1, weight=1)
-        self.gallery_frame.grid_rowconfigure(2, weight=1)
+        self.gallery_frame.grid_rowconfigure(3, weight=1)
 
         self.gallery_title = ctk.CTkLabel(self.gallery_frame, text="Clip Gallery & Reasoning", font=ctk.CTkFont(size=28, weight="bold"))
         self.gallery_title.grid(row=0, column=0, columnspan=2, padx=30, pady=(30, 10), sticky="w")
-
-        self.clip_listbox = ctk.CTkScrollableFrame(self.gallery_frame, width=300, corner_radius=15)
-        self.clip_listbox.grid(row=2, column=0, padx=(30, 10), pady=10, sticky="nsew")
         
         self.sort_frame = ctk.CTkFrame(self.gallery_frame, fg_color="transparent")
         self.sort_frame.grid(row=1, column=0, padx=(30, 10), pady=(0, 5), sticky="ew")

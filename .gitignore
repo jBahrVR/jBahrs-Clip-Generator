@@ -31,3 +31,4 @@ config.json
 # Logs
 app_crash_log.txt
 logs/auto_scheduler.log
+config/gemini.md

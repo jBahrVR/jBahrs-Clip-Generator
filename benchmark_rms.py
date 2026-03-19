@@ -51,9 +51,9 @@ def analyze_audio_peaks_optimized(audio_array, segments, sample_rate=16000, peak
             continue
         prefix_tags = []
 
-        rms = None
+        rms = 0.0
         if peak_detection or combat_detection:
-            rms = np.sqrt(np.mean(chunk**2))
+            rms = float(np.sqrt(np.mean(chunk**2)))
 
         loudness = 0
         if peak_detection:
