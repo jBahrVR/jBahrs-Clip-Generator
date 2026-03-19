@@ -26,7 +26,7 @@ class WhisperProgressStream(io.StringIO):
                 if self.logger:
                     self.logger(f"⏳ Processed up to {timestamp}: {clean_msg[:40]}...")
             self.counter += 1
-        super().write(s)
+        return super().write(s)
 
     def flush(self):
         pass

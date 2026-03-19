@@ -318,7 +318,6 @@ class ClipGenApp(ctk.CTk):
         self.whisper_menu = ctk.CTkOptionMenu(self.api_card, values=["tiny", "base", "small", "medium", "large"], height=35)
         self.whisper_menu.grid(row=10, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="ew")
         self.whisper_menu.set(self.config.get('openai', {}).get('whisper_model', 'base'))
-        self.whisper_menu.set(self.config.get('openai', {}).get('whisper_model', 'base'))
 
         # --- Card 2: Paths & Downloads ---
         self.paths_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
