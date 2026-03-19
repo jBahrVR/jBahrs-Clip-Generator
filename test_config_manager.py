@@ -1,5 +1,6 @@
 import sys
 import os
+from unittest.mock import patch, mock_open
 
 from config_manager import get_default_config, save_config, CONFIG_FILE
 
@@ -59,6 +60,40 @@ def test_save_config_permissions():
 
     print("All tests for test_save_config_permissions passed!")
 
+@patch('config_manager.json.dump')
+@patch('config_manager.os.chmod')
+@patch('config_manager.os.fdopen')
+@patch('config_manager.os.open')
+def test_save_config_content(mock_os_open, mock_os_fdopen, mock_os_chmod, mock_json_dump):
+    # Setup mock returns
+    mock_os_open.return_value = 3  # Dummy file descriptor
+    mock_file = mock_open()()
+    mock_os_fdopen.return_value.__enter__.return_value = mock_file
+
+    # Create a dummy configuration to save
+    test_config = {
+        "test_key": "test_value",
+        "nested": {"key": 123}
+    }
+
+    # Call the function being tested
+    save_config(test_config)
+
+    # Verify os.open was called with correct arguments
+    mock_os_open.assert_called_once_with(CONFIG_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+
+    # Verify os.fdopen was called correctly
+    mock_os_fdopen.assert_called_once_with(3, 'w')
+
+    # Verify json.dump was called with the correct dictionary and file object
+    mock_json_dump.assert_called_once_with(test_config, mock_file, indent=4)
+
+    # Verify os.chmod was called
+    mock_os_chmod.assert_called_once_with(CONFIG_FILE, 0o600)
+
+    print("All tests for test_save_config_content passed!")
+
 if __name__ == "__main__":
     test_get_default_config()
     test_save_config_permissions()
+    test_save_config_content()
