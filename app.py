@@ -617,7 +617,6 @@ class ClipGenApp(ctk.CTk):
                 if not url.startswith("https://discord.com/"):
                     raise ValueError("Invalid Discord URL")
                 import urllib.request
-                import urllib.error
                 import json
                 headers = {
                     "Content-Type": "application/json",
