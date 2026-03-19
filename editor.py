@@ -125,11 +125,12 @@ def extract_audio_hidden(file_path, sr=16000):
         if hasattr(subprocess, 'SW_HIDE'):
             startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
 
-    out = subprocess.run(cmd, capture_output=True, startupinfo=startupinfo)
-    if out.returncode != 0:
-        raise RuntimeError(f"FFmpeg audio extraction failed: {out.stderr.decode()}")
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=startupinfo)
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"FFmpeg audio extraction failed: {stderr.decode()}")
         
-    return np.frombuffer(out.stdout, np.int16).flatten().astype(np.float32) / 32768.0
+    return np.frombuffer(stdout, np.int16).flatten().astype(np.float32) / 32768.0
 
 def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
     base_name = os.path.splitext(os.path.basename(file_path))[0]
