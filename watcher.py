@@ -45,6 +45,10 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
     if auth_browser and auth_browser != "None":
         cmd.extend(["--cookies-from-browser", auth_browser])
         
+    # Add the URL to the very end of the command
+    cmd.append("--")
+    cmd.append(url)
+
     if not force_manual and video_type == "Livestreams Only":
         if logger_callback: 
             logger_callback("🔍 Applying 'Livestreams Only' filter...")
@@ -84,21 +88,21 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
                 line = line.strip()
                 if not line:
                     continue
-            
-            # Keep the last 10 lines of console output in memory
-            error_log.append(line)
-            if len(error_log) > 10:
-                error_log.pop(0)
-            
-            if logger_callback: 
-                # Print progress and catch any explicit ERROR strings
-                if "[download]" in line or "[Merger]" in line or "ERROR:" in line:
-                    logger_callback(f"[yt-dlp]: {line}")
-
-            if "Merging formats into" in line:
-                parts = line.split('"')
-                if len(parts) >= 3:
-                    downloaded_file_path = parts[1]
+                
+                # Keep the last 10 lines of console output in memory
+                error_log.append(line)
+                if len(error_log) > 10:
+                    error_log.pop(0)
+                
+                if logger_callback: 
+                    # Print progress and catch any explicit ERROR strings
+                    if "[download]" in line or "[Merger]" in line or "ERROR:" in line:
+                        logger_callback(f"[yt-dlp]: {line}")
+                
+                if "Merging formats into" in line:
+                    parts = line.split('"')
+                    if len(parts) >= 3:
+                        downloaded_file_path = parts[1]
 
         process.wait()
 
@@ -156,8 +160,9 @@ def main(logger_callback=None):
         YTDLP_PATH,
         "--flat-playlist",
         "--print", "id",
-        "--max-downloads", "1",
-        "--", target_url
+        "--max-downloads", "1", 
+        "--",
+        target_url
     ]
     
     startupinfo = None
