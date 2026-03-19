@@ -496,7 +496,6 @@ class ClipGenApp(ctk.CTk):
         self.detail_title = ctk.CTkLabel(self.details_card, text="Select a clip to view details", font=ctk.CTkFont(size=20, weight="bold"))
         self.detail_title.grid(row=0, column=0, padx=20, pady=20, sticky="w")
 
-        # THE FINAL FIX: Moving text_color to the widget level, outside of the CTkFont bounds!
         self.detail_score = ctk.CTkLabel(self.details_card, text="Score: --/10", font=ctk.CTkFont(size=16), text_color="#2ecc71")
         self.detail_score.grid(row=1, column=0, padx=20, pady=5, sticky="w")
 
