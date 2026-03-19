@@ -109,8 +109,8 @@ def load_config():
     if os.path.exists(OLD_LOCAL_CONFIG) and not os.path.exists(CONFIG_FILE):
         try:
             shutil.move(OLD_LOCAL_CONFIG, CONFIG_FILE)
-        except Exception:
-            pass 
+        except Exception as e:
+            print(f"Failed to migrate old config file: {e}")
 
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, 'r') as f:
