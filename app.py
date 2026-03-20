@@ -1,5 +1,6 @@
 import sys
 import os
+from tkinter import messagebox
 
 if sys.stdout is None:
     sys.stdout = open(os.devnull, "w")
@@ -851,9 +852,12 @@ class ClipGenApp(ctk.CTk):
     def delete_profile(self):
         active = self.profile_dropdown.get()
         if len(self.config["prompts"]["profiles"]) > 1:
-            del self.config["prompts"]["profiles"][active]
-            config_manager.save_config(self.config)
-            self.load_prompt_data()
+            if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete the profile '{active}'?"):
+                del self.config["prompts"]["profiles"][active]
+                config_manager.save_config(self.config)
+                self.load_prompt_data()
+        else:
+            messagebox.showwarning("Cannot Delete", "You must have at least one prompt profile.")
 
     def save_settings(self):
         self.config['youtube']['channel_id'] = self.yt_id_entry.get()
