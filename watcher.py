@@ -44,10 +44,6 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
     # Dynamically inject the cookies flag ONLY if they selected a browser
     if auth_browser and auth_browser != "None":
         cmd.extend(["--cookies-from-browser", auth_browser])
-        
-    # Add the URL to the very end of the command
-    cmd.append("--")
-    cmd.append(url)
 
     if not force_manual and video_type == "Livestreams Only":
         if logger_callback: 
@@ -55,7 +51,8 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
         cmd.extend(["--match-filter", "live_status=?was_live"])
 
     # Add the URL to the very end of the command
-    cmd.extend(["--", url])
+    cmd.append("--")
+    cmd.append(url)
 
     startupinfo = None
     if os.name == 'nt' and hasattr(subprocess, 'STARTUPINFO'):

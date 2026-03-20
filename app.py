@@ -320,7 +320,7 @@ class ClipGenApp(ctk.CTk):
         self.test_discord_btn.grid(row=8, column=2, padx=(0, 20), pady=5, sticky="e")
 
         ctk.CTkLabel(self.api_card, text="AI Chat Model:", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=20, pady=5, sticky="e")
-        self.model_menu = ctk.CTkOptionMenu(self.api_card, values=[
+        self.model_menu = ctk.CTkComboBox(self.api_card, values=[
             "gpt-4o", "gpt-4o-mini", 
             "gemini-2.5-flash", "gemini-2.5-pro",
             "claude-sonnet-4-6", "claude-haiku-4-5-20251001",
@@ -497,8 +497,15 @@ class ClipGenApp(ctk.CTk):
         self.clip_listbox = ctk.CTkScrollableFrame(self.gallery_frame, width=300, corner_radius=15)
         self.clip_listbox.grid(row=3, column=0, padx=(30, 10), pady=10, sticky="nsew")
 
-        self.refresh_gallery_btn = ctk.CTkButton(self.gallery_frame, text="🔄 Refresh List", command=self.populate_gallery)
-        self.refresh_gallery_btn.grid(row=4, column=0, padx=(30, 10), pady=(0, 10), sticky="ew")
+        self.gallery_actions_frame = ctk.CTkFrame(self.gallery_frame, fg_color="transparent")
+        self.gallery_actions_frame.grid(row=4, column=0, padx=(30, 10), pady=(0, 10), sticky="ew")
+
+        self.select_all_var = ctk.BooleanVar(value=False)
+        self.select_all_checkbox = ctk.CTkCheckBox(self.gallery_actions_frame, text="Select All", variable=self.select_all_var, command=self.toggle_select_all)
+        self.select_all_checkbox.pack(side="left", padx=(0, 10))
+
+        self.refresh_gallery_btn = ctk.CTkButton(self.gallery_actions_frame, text="🔄 Refresh List", command=self.populate_gallery)
+        self.refresh_gallery_btn.pack(side="right", fill="x", expand=True)
 
         self.delete_marked_btn = ctk.CTkButton(self.gallery_frame, text="🗑️ Delete Marked Clips", fg_color="#c0392b", hover_color="#922b21", command=self.confirm_delete_marked)
         self.delete_marked_btn.grid(row=5, column=0, padx=(30, 10), pady=(0, 20), sticky="ew")
@@ -889,9 +896,19 @@ class ClipGenApp(ctk.CTk):
         self.log_to_console("✅ Settings saved!")
 
     # --- Gallery Logic ---
+    def toggle_select_all(self):
+        select_state = self.select_all_var.get()
+        if hasattr(self, 'marked_for_deletion'):
+            for var in self.marked_for_deletion.values():
+                var.set(select_state)
+
     def populate_gallery(self):
         for widget in self.clip_listbox.winfo_children():
             widget.destroy()
+
+        # Reset select all checkbox
+        if hasattr(self, 'select_all_var'):
+            self.select_all_var.set(False)
 
         clips_dir = self.config.get('settings', {}).get('clips_dir', '')
         if not clips_dir or not os.path.exists(clips_dir):

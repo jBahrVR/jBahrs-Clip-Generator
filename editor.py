@@ -443,6 +443,13 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
         for seg in segments
     )
 
+    # Estimate token count based on a common heuristic (1 token ~= 4 chars or ~0.75 words)
+    # Using roughly 1.3 tokens per word as a general English baseline.
+    word_count = len(full_transcript.split())
+    estimated_tokens = int(word_count * 1.3)
+    if logger:
+        logger(f"📊 Extracted approx {estimated_tokens:,} tokens ({word_count:,} words) for the AI model's context window.")
+
     if is_gemini_model and not is_openrouter:
         if not HAS_GEMINI:
             if logger: logger("❌ Error: google-generativeai module missing.")
