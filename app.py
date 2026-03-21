@@ -899,6 +899,13 @@ class ClipGenApp(ctk.CTk):
         config_manager.save_config(self.config)
         self.log_to_console("✅ Settings saved!")
 
+        # Provide immediate visual feedback on the button (prevent double-click bug)
+        if self.save_btn.cget("text") != "✅ Saved!":
+            self.original_btn_color = self.save_btn.cget("fg_color")
+
+        self.save_btn.configure(text="✅ Saved!", fg_color="#2ecc71")
+        self.after(2000, lambda: self.save_btn.configure(text="Save Settings", fg_color=getattr(self, 'original_btn_color', ["#3a7ebf", "#1f538d"])))
+
     # --- Gallery Logic ---
     def toggle_select_all(self):
         select_state = self.select_all_var.get()
