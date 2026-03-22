@@ -505,7 +505,7 @@ class ClipGenApp(ctk.CTk):
         self.select_all_checkbox = ctk.CTkCheckBox(self.gallery_actions_frame, text="Select All", variable=self.select_all_var, command=self.toggle_select_all)
         self.select_all_checkbox.pack(side="left", padx=(0, 10))
 
-        self.refresh_gallery_btn = ctk.CTkButton(self.gallery_actions_frame, text="🔄 Refresh List", command=self.populate_gallery)
+        self.refresh_gallery_btn = ctk.CTkButton(self.gallery_actions_frame, text="🔄 Refresh List", command=self.refresh_gallery_action)
         self.refresh_gallery_btn.pack(side="right", fill="x", expand=True)
 
         self.delete_marked_btn = ctk.CTkButton(self.gallery_frame, text="🗑️ Delete Marked Clips", fg_color="#c0392b", hover_color="#922b21", command=self.confirm_delete_marked)
@@ -907,6 +907,15 @@ class ClipGenApp(ctk.CTk):
         self.after(2000, lambda: self.save_btn.configure(text="Save Settings", fg_color=getattr(self, 'original_btn_color', ["#3a7ebf", "#1f538d"])))
 
     # --- Gallery Logic ---
+    def refresh_gallery_action(self):
+        self.populate_gallery()
+
+        if self.refresh_gallery_btn.cget("text") != "✅ Refreshed!":
+            self.original_refresh_btn_color = self.refresh_gallery_btn.cget("fg_color")
+
+        self.refresh_gallery_btn.configure(text="✅ Refreshed!", fg_color="#2ecc71")
+        self.after(2000, lambda: self.refresh_gallery_btn.configure(text="🔄 Refresh List", fg_color=getattr(self, 'original_refresh_btn_color', ["#3a7ebf", "#1f538d"])))
+
     def toggle_select_all(self):
         select_state = self.select_all_var.get()
         if hasattr(self, 'marked_for_deletion'):
