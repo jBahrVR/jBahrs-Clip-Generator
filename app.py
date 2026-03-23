@@ -923,6 +923,8 @@ class ClipGenApp(ctk.CTk):
 
         clips_dir = self.config.get('settings', {}).get('clips_dir', '')
         if not clips_dir or not os.path.exists(clips_dir):
+            empty_label = ctk.CTkLabel(self.clip_listbox, text="Clip folder not set or does not exist.", font=ctk.CTkFont(slant="italic"), text_color="gray")
+            empty_label.pack(pady=20)
             return
 
         sort_mode = self.sort_menu.get()
@@ -970,6 +972,7 @@ class ClipGenApp(ctk.CTk):
         if score_filter != "All":
             min_score = int(score_filter.replace("+", ""))
 
+        visible_count = 0
         for item in clip_data:
             file = item["filename"]
             
@@ -980,6 +983,8 @@ class ClipGenApp(ctk.CTk):
 
             # Filter by Score
             if float(item["score"]) < min_score: continue
+
+            visible_count += 1
             row_frame = ctk.CTkFrame(self.clip_listbox, fg_color="transparent")
             row_frame.pack(fill="x", pady=2, padx=5)
             
@@ -990,6 +995,10 @@ class ClipGenApp(ctk.CTk):
             btn = ctk.CTkButton(row_frame, text=file, fg_color="#2b2b2b", hover_color="#3b3b3b", anchor="w", 
                                 command=lambda f=file: self.load_clip_details(f, clips_dir))
             btn.pack(side="left", fill="x", expand=True)
+
+        if visible_count == 0:
+            empty_label = ctk.CTkLabel(self.clip_listbox, text="No clips found matching current filters.", font=ctk.CTkFont(slant="italic"), text_color="gray")
+            empty_label.pack(pady=20)
 
     def confirm_delete_marked(self):
         files_to_delete = [f for f, var in getattr(self, 'marked_for_deletion', {}).items() if var.get()]
