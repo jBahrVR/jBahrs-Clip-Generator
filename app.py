@@ -332,10 +332,15 @@ class ClipGenApp(ctk.CTk):
         self.model_menu.grid(row=9, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
         self.model_menu.set(self.config.get('openai', {}).get('chat_model', 'gpt-4o'))
 
-        ctk.CTkLabel(self.api_card, text="Whisper Transcribe Model:", font=ctk.CTkFont(weight="bold")).grid(row=10, column=0, padx=20, pady=(5, 15), sticky="e")
+        ctk.CTkLabel(self.api_card, text="Whisper Transcribe Model:", font=ctk.CTkFont(weight="bold")).grid(row=10, column=0, padx=20, pady=5, sticky="e")
         self.whisper_menu = ctk.CTkOptionMenu(self.api_card, values=["tiny", "base", "small", "medium", "large"], height=35)
-        self.whisper_menu.grid(row=10, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="ew")
+        self.whisper_menu.grid(row=10, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
         self.whisper_menu.set(self.config.get('openai', {}).get('whisper_model', 'base'))
+
+        ctk.CTkLabel(self.api_card, text="VOD Language:", font=ctk.CTkFont(weight="bold")).grid(row=11, column=0, padx=20, pady=(5, 15), sticky="e")
+        self.language_menu = ctk.CTkComboBox(self.api_card, values=["Auto-Detect", "English", "Spanish", "French", "German", "Italian", "Portuguese", "Russian", "Japanese", "Korean", "Chinese"], height=35)
+        self.language_menu.grid(row=11, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="ew")
+        self.language_menu.set(self.config.get('openai', {}).get('whisper_language', 'English'))
 
         # --- Card 2: Paths & Downloads ---
         self.paths_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
@@ -879,6 +884,7 @@ class ClipGenApp(ctk.CTk):
         
         self.config['openai']['chat_model'] = self.model_menu.get()
         self.config['openai']['whisper_model'] = self.whisper_menu.get()
+        self.config['openai']['whisper_language'] = self.language_menu.get()
         self.config['settings']['download_quality'] = self.quality_menu.get()
         self.config['settings']['download_dir'] = self.vod_dir_entry.get()
         self.config['settings']['clips_dir'] = self.clip_dir_entry.get()
