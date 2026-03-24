@@ -67,7 +67,8 @@ def analyze_audio_peaks(audio_array, segments, sample_rate=16000, peak_detection
         # Calculate global RMS once to use as base if needed
         rms = 0.0
         if peak_detection or combat_detection:
-            rms = np.sqrt(np.mean(chunk**2))
+            # Using np.linalg.norm is much faster than np.sqrt(np.mean(chunk**2))
+            rms = float(np.linalg.norm(chunk) / np.sqrt(len(chunk)))
 
         # 1. Loudness Analysis
         loudness = 0

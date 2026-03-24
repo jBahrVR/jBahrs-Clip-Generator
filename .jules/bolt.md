@@ -1,0 +1,3 @@
+## 2024-03-24 - [NumPy RMS Calculation Memory Allocation]
+**Learning:** In NumPy, calculating RMS via `np.sqrt(np.mean(chunk**2))` creates a completely new temporary array in memory of the same size as `chunk` for the `chunk**2` operation. This is surprisingly slow due to the intermediate allocation overhead, especially in loops over audio segments. Using `np.linalg.norm(chunk) / np.sqrt(len(chunk))` bypasses this intermediate allocation and leverages highly optimized BLAS routines, significantly speeding up the calculation and preventing potential integer overflow if the input were not upcasted.
+**Action:** When calculating RMS or similar norms in hot loops using NumPy, prefer `np.linalg.norm` to avoid intermediate array allocations and improve performance safely.
