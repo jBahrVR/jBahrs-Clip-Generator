@@ -356,8 +356,32 @@ def _validate_api_keys(config, chat_model, logger):
             return False
     return True
 
+LANGUAGE_MAP = {
+    "English": "en",
+    "Spanish": "es",
+    "French": "fr",
+    "German": "de",
+    "Italian": "it",
+    "Portuguese": "pt",
+    "Russian": "ru",
+    "Japanese": "ja",
+    "Korean": "ko",
+    "Chinese": "zh",
+    "Auto-Detect": None
+}
+
 def _transcribe_audio_to_segments(file_path, config, logger, is_cancelled):
     whisper_model_type = config.get("openai", {}).get("whisper_model", "base")
+    language_setting = config.get("openai", {}).get("whisper_language", "English")
+
+    if language_setting == "Auto-Detect":
+        target_language = None
+    elif language_setting in LANGUAGE_MAP:
+        target_language = LANGUAGE_MAP[language_setting]
+    else:
+        # Fallback for custom inputs like "Dutch" -> "nl" if they enter the 2 letter code, else fallback to slicing
+        target_language = language_setting.lower() if len(language_setting) == 2 else language_setting[:2].lower()
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     if logger:
@@ -400,7 +424,16 @@ def _transcribe_audio_to_segments(file_path, config, logger, is_cancelled):
         fp16_enabled = True if device == "cuda" else False
         progress_stream = WhisperProgressStream(logger)
         with contextlib.redirect_stdout(progress_stream):
-            result = model.transcribe(audio_array, condition_on_previous_text=False, beam_size=1, fp16=fp16_enabled, verbose=True)
+            transcribe_kwargs = {
+                "condition_on_previous_text": False,
+                "beam_size": 1,
+                "fp16": fp16_enabled,
+                "verbose": True
+            }
+            if target_language is not None:
+                transcribe_kwargs["language"] = target_language
+
+            result = model.transcribe(audio_array, **transcribe_kwargs)
             
         raw_segments = result.get("segments", [])
         
