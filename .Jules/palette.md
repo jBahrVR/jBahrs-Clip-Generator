@@ -5,3 +5,6 @@
 ## 2024-05-27 - Empty States for Scrollable Frames
 **Learning:** In desktop UI applications like CustomTkinter, users often encounter empty scrollable lists (e.g., when filtering clips or when a directory is not configured). If there's no visual feedback, the user might assume the app is loading, broken, or unresponsive.
 **Action:** When a loop building UI elements in a scrollable frame results in zero visible items, dynamically append a generic empty-state label (`ctk.CTkLabel`) with italicized text to provide immediate, helpful guidance indicating that no items matched the criteria.
+## 2024-05-28 - Dynamic text states can permanently truncate UI if not restored properly
+**Learning:** When using transient UI feedback like temporarily changing button text to 'Saved!', hardcoding the restore text (e.g., reverting to 'Save Prompt') can inadvertently overwrite context-specific original text (e.g., 'Save Current Prompt'), confusing users and corrupting the UI.
+**Action:** Always programmatically store the original state (`widget.cget('text')`) before modifying, and use that stored property to restore the UI.
