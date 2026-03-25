@@ -947,28 +947,29 @@ class ClipGenApp(ctk.CTk):
         
         # Gather file data for sorting
         clip_data = []
-        for f in os.listdir(clips_dir):
-            if f.endswith(".mp4"):
-                full_path = os.path.join(clips_dir, f)
-                ctime = os.path.getctime(full_path)
-                
-                score = 0
-                # Try to get virality score from JSON if sorting by it
-                if "Virality" in sort_mode:
-                    json_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json"))
-                    if os.path.exists(json_path):
-                        try:
-                            with open(json_path, 'r', encoding='utf-8') as jf:
-                                jdata = json.load(jf)
-                                score = float(jdata.get("virality_score", 0))
-                        except Exception as e:
-                            print(f"Error reading virality score from {json_path}: {e}")
-                
-                clip_data.append({
-                    "filename": f,
-                    "ctime": ctime,
-                    "score": score
-                })
+        with os.scandir(clips_dir) as entries:
+            for entry in entries:
+                if entry.name.endswith(".mp4") and entry.is_file():
+                    f = entry.name
+                    ctime = entry.stat().st_ctime
+
+                    score = 0
+                    # Try to get virality score from JSON if sorting by it
+                    if "Virality" in sort_mode:
+                        json_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json"))
+                        if os.path.exists(json_path):
+                            try:
+                                with open(json_path, 'r', encoding='utf-8') as jf:
+                                    jdata = json.load(jf)
+                                    score = float(jdata.get("virality_score", 0))
+                            except Exception as e:
+                                print(f"Error reading virality score from {json_path}: {e}")
+
+                    clip_data.append({
+                        "filename": f,
+                        "ctime": ctime,
+                        "score": score
+                    })
 
         # Apply sorting
         if sort_mode == "Date (Newest)":
