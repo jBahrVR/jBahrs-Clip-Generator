@@ -409,19 +409,19 @@ class ClipGenApp(ctk.CTk):
         self.coord_frame.grid(row=7, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
         
         ctk.CTkLabel(self.coord_frame, text="X:").pack(side="left", padx=(0, 5))
-        self.crop_x_entry = ctk.CTkEntry(self.coord_frame, width=50)
+        self.crop_x_entry = ctk.CTkEntry(self.coord_frame, width=50, placeholder_text="0")
         self.crop_x_entry.pack(side="left", padx=(0, 10))
         
         ctk.CTkLabel(self.coord_frame, text="Y:").pack(side="left", padx=(0, 5))
-        self.crop_y_entry = ctk.CTkEntry(self.coord_frame, width=50)
+        self.crop_y_entry = ctk.CTkEntry(self.coord_frame, width=50, placeholder_text="0")
         self.crop_y_entry.pack(side="left", padx=(0, 10))
         
         ctk.CTkLabel(self.coord_frame, text="W:").pack(side="left", padx=(0, 5))
-        self.crop_w_entry = ctk.CTkEntry(self.coord_frame, width=50)
+        self.crop_w_entry = ctk.CTkEntry(self.coord_frame, width=50, placeholder_text="400")
         self.crop_w_entry.pack(side="left", padx=(0, 10))
         
         ctk.CTkLabel(self.coord_frame, text="H:").pack(side="left", padx=(0, 5))
-        self.crop_h_entry = ctk.CTkEntry(self.coord_frame, width=50)
+        self.crop_h_entry = ctk.CTkEntry(self.coord_frame, width=50, placeholder_text="225")
         self.crop_h_entry.pack(side="left", padx=(0, 0))
 
         # LOAD SAVED STATES
@@ -851,8 +851,13 @@ class ClipGenApp(ctk.CTk):
         active = self.profile_dropdown.get()
         self.config["prompts"]["profiles"][active] = self.prompt_textbox.get("1.0", "end").strip()
         config_manager.save_config(self.config)
+
+        if self.save_prompt_btn.cget("text") != "✅ Saved!":
+            self.original_prompt_btn_color = self.save_prompt_btn.cget("fg_color")
+            self.original_prompt_btn_text = self.save_prompt_btn.cget("text")
+
         self.save_prompt_btn.configure(text="✅ Saved!", fg_color="#2ecc71")
-        self.after(2000, lambda: self.save_prompt_btn.configure(text="Save Prompt", fg_color=["#3a7ebf", "#1f538d"]))
+        self.after(2000, lambda: self.save_prompt_btn.configure(text=getattr(self, 'original_prompt_btn_text', "Save Current Prompt"), fg_color=getattr(self, 'original_prompt_btn_color', ["#3a7ebf", "#1f538d"])))
 
     def delete_profile(self):
         active = self.profile_dropdown.get()
