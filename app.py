@@ -647,7 +647,7 @@ class ClipGenApp(ctk.CTk):
                 data = json.dumps({"content": "✅ **Test Alert from jBahr's Clip Generator!** The Webhook link is alive."}).encode('utf-8')
                 req = urllib.request.Request(url, data=data, headers=headers, method="POST")
                 
-                with urllib.request.urlopen(req) as response:
+                with urllib.request.urlopen(req, timeout=10) as response:
                     if response.status in [200, 204]:
                         self.after(0, lambda: self.test_discord_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
                         self.after(3000, lambda: self.test_discord_btn.configure(text="Test Alert", fg_color=["#3a7ebf", "#1f538d"]))
@@ -680,7 +680,7 @@ class ClipGenApp(ctk.CTk):
                 }
                 data = json.dumps(payload).encode('utf-8')
                 req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-                with urllib.request.urlopen(req) as _:
+                with urllib.request.urlopen(req, timeout=10) as _:
                     pass
             except Exception as e:
                 self.log_to_console(f"❌ Discord Webhook Failed: {e}")
