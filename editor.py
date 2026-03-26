@@ -27,9 +27,6 @@ class WhisperProgressStream(io.StringIO):
             self.counter += 1
         return super().write(s)
 
-    def flush(self):
-        pass
-
 try:
     import google.generativeai as genai # type: ignore
     HAS_GEMINI = True
