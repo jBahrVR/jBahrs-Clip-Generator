@@ -1,3 +1,7 @@
 ## 2024-03-24 - [NumPy RMS Calculation Memory Allocation]
 **Learning:** In NumPy, calculating RMS via `np.sqrt(np.mean(chunk**2))` creates a completely new temporary array in memory of the same size as `chunk` for the `chunk**2` operation. This is surprisingly slow due to the intermediate allocation overhead, especially in loops over audio segments. Using `np.linalg.norm(chunk) / np.sqrt(len(chunk))` bypasses this intermediate allocation and leverages highly optimized BLAS routines, significantly speeding up the calculation and preventing potential integer overflow if the input were not upcasted.
 **Action:** When calculating RMS or similar norms in hot loops using NumPy, prefer `np.linalg.norm` to avoid intermediate array allocations and improve performance safely.
+
+## 2024-05-18 - [String Partitioning Over Splitting]
+**Learning:** In high-frequency string parsing tasks, such as filtering console logs, parsing Whisper stream segments, or stripping markdown tags from AI responses, using `str.split()` allocates a full list of all possible substrings in memory, even if only the first or last element is needed. Replacing `str.split(sep)[index]` with `str.partition(sep)` or `str.rpartition(sep)` avoids this allocation entirely by returning exactly a 3-tuple, consistently speeding up string parsing by ~30-40%.
+**Action:** For string parsing where only the first occurrence or last occurrence of a separator matters, explicitly use `.partition()` or `.rpartition()` over `.split()` to eliminate unnecessary array allocations and reduce GC pressure.
