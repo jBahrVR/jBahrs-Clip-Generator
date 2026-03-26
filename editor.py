@@ -20,8 +20,8 @@ class WhisperProgressStream(io.StringIO):
         if raw_msg and "-->" in raw_msg:
             # Throttle to log only every 10th segment to prevent UI span lag
             if self.counter % 10 == 0:
-                clean_msg = raw_msg.split("]")[1].strip() if "]" in raw_msg else raw_msg
-                timestamp = raw_msg.split("]")[0].replace("[", "").split("-->")[0].strip() if "-->" in raw_msg else ""
+                clean_msg = raw_msg.partition("]")[2].strip() if "]" in raw_msg else raw_msg
+                timestamp = raw_msg.partition("]")[0].replace("[", "").partition("-->")[0].strip() if "-->" in raw_msg else ""
                 if self.logger:
                     self.logger(f"⏳ Processed up to {timestamp}: {clean_msg[:40]}...")
             self.counter += 1
@@ -541,9 +541,9 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
             
             raw_content = response.content[0].text.strip()
             if raw_content.startswith("```json"):
-                raw_content = raw_content.split("```json")[-1].split("```")[0].strip()
+                raw_content = raw_content.partition("```json")[2].partition("```")[0].strip()
             elif raw_content.startswith("```"):
-                raw_content = raw_content.split("```")[-1].split("```")[0].strip()
+                raw_content = raw_content.partition("```")[2].partition("```")[0].strip()
 
             chunk_data = json.loads(raw_content)
             found_clips = chunk_data.get("clips", [])

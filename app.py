@@ -693,7 +693,7 @@ class ClipGenApp(ctk.CTk):
         elif "🧠" in text or "🌌" in text or "🤖" in text or "🎯" in text: tag = "ai"
         elif "✂️" in text or "🎞️" in text or "📸" in text or "📱" in text: tag = "ffmpeg"
         
-        status_clean = text.split("]")[-1].strip() if "]" in text else text.strip()
+        status_clean = text.rpartition("]")[2].strip() if "]" in text else text.strip()
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         display_text = f"[{timestamp}] {text}"
 
