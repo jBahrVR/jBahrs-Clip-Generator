@@ -133,8 +133,8 @@ class TestWatcherDownloadWithSubprocess(unittest.TestCase):
         result = watcher.download_with_subprocess(self.url, self.video_id, logger_callback=self.mock_logger)
 
         self.assertIsNone(result)
-        # Should contain the last lines
-        self.mock_logger.assert_called_with("❌ Download failed! yt-dlp says:\nERROR: Video unavailable\nSomething went wrong")
+        # Should contain the specific ERROR lines if present
+        self.mock_logger.assert_called_with("❌ Download failed! yt-dlp says:\nERROR: Video unavailable")
 
     @patch('os.path.exists')
     @patch('os.makedirs')
