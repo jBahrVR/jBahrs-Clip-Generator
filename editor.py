@@ -204,10 +204,15 @@ def _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_
         elif vertical_mode == "Facecam Bottom-Left": x, y = 0, 855
         elif vertical_mode == "Facecam Bottom-Right": x, y = 1520, 855
         elif vertical_mode == "Custom Coordinates":
-            x = config.get("settings", {}).get("crop_x", "0")
-            y = config.get("settings", {}).get("crop_y", "0")
-            w = config.get("settings", {}).get("crop_w", "400")
-            h = config.get("settings", {}).get("crop_h", "225")
+            # 🛡️ Sentinel: Validate crop inputs to prevent FFmpeg filter injection
+            try:
+                x = int(config.get("settings", {}).get("crop_x", "0"))
+                y = int(config.get("settings", {}).get("crop_y", "0"))
+                w = int(config.get("settings", {}).get("crop_w", "400"))
+                h = int(config.get("settings", {}).get("crop_h", "225"))
+            except ValueError:
+                x, y, w, h = 0, 0, 400, 225
+                if logger: logger("⚠️ Invalid crop coordinates, falling back to safe defaults.")
 
         filter_complex = f"[0:v]crop={w}:{h}:{x}:{y},scale=1080:840[cam];[0:v]crop=1080:1080:420:0[game];[cam][game]vstack=inputs=2[out]"
         
@@ -245,7 +250,10 @@ def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec,
         
     start_time = clip.get("start_time")
     end_time = clip.get("end_time")
-    score = clip.get("virality_score", "N/A")
+
+    # 🛡️ Sentinel: Sanitize AI output to prevent path traversal
+    raw_score = str(clip.get("virality_score", "N/A"))
+    score = "".join(c for c in raw_score if c.isalnum() or c in "._-")
 
     if start_time is None or end_time is None:
         return None

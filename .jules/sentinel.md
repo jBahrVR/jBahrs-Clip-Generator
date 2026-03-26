@@ -1,0 +1,4 @@
+## 2024-05-24 - AI-Driven Path Traversal
+**Vulnerability:** The AI-generated 'virality_score' field was concatenated directly into file paths without sanitization, allowing an LLM to perform path traversal (e.g., `../`) and write output files to arbitrary locations.
+**Learning:** Untrusted output from LLMs must be treated as malicious user input, especially when used in file system operations. The AI output directly controls the payload in `os.path.join`.
+**Prevention:** Always sanitize or type-cast AI-generated fields (e.g., stripping non-alphanumeric characters) before using them in file paths or system commands.
