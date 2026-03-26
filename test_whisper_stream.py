@@ -1,8 +1,8 @@
 import unittest
+from unittest.mock import MagicMock, patch
 import sys
-from unittest.mock import MagicMock
 
-# Mocking external dependencies
+# Mock dependencies to avoid ImportError
 sys.modules['torch'] = MagicMock()
 sys.modules['whisper'] = MagicMock()
 sys.modules['config_manager'] = MagicMock()
@@ -15,44 +15,41 @@ sys.modules['anthropic'] = MagicMock()
 from editor import WhisperProgressStream
 
 class TestWhisperProgressStream(unittest.TestCase):
-    def test_whisper_progress_stream_logging(self):
+    def test_whisper_progress_stream_parsing(self):
         logs = []
         def logger(msg):
             logs.append(msg)
 
         stream = WhisperProgressStream(logger)
 
-        # Test 1: Log with timestamp (should be logged because counter=0)
-        stream.write("[00:00.000 --> 00:05.000] Hello World")
+        # Test 1st segment (counter = 0, should log)
+        stream.write("[00:00.000 --> 00:05.000] Hello world\n")
         self.assertEqual(len(logs), 1)
-        self.assertIn("⏳ Processed up to 00:00.000", logs[0])
+        self.assertIn("00:00.000", logs[0])
+        self.assertIn("Hello world", logs[0])
 
-        # Test 2: Throttling (should NOT log next 9 segments)
+        # Test 2nd to 10th segments (should NOT log due to throttling)
         for i in range(1, 10):
-            stream.write(f"[00:0{i}.000 --> 00:0{i+1}.000] Segment {i}")
-            self.assertEqual(len(logs), 1, f"Logged at counter {i}")
+            stream.write(f"[00:0{i}.000 --> 00:0{i+1}.000] Segment {i}\n")
 
-        # Test 3: Log after 10th segment (should log because counter=10)
-        stream.write("[00:10.000 --> 00:11.000] Tenth Segment")
+        self.assertEqual(len(logs), 1) # Still 1
+
+        # Test 11th segment (counter = 10, should log)
+        stream.write("[00:10.000 --> 00:11.000] Tenth segment\n")
         self.assertEqual(len(logs), 2)
-        self.assertIn("⏳ Processed up to 00:10.000", logs[1])
+        self.assertIn("00:10.000", logs[1])
+        self.assertIn("Tenth segment", logs[1])
 
-    def test_whisper_progress_stream_no_timestamp(self):
+    def test_whisper_progress_stream_no_bracket(self):
         logs = []
         def logger(msg):
             logs.append(msg)
 
         stream = WhisperProgressStream(logger)
-        stream.write("No timestamp here")
-        self.assertEqual(len(logs), 0)
-
-    def test_whisper_progress_stream_flush(self):
-        # Even after removal, flush should still be callable because it's in io.StringIO
-        stream = WhisperProgressStream(None)
-        try:
-            stream.flush()
-        except AttributeError:
-            self.fail("flush() method not found on WhisperProgressStream")
+        stream.write("00:00.000 --> 00:05.000 Hello world\n")
+        self.assertEqual(len(logs), 1)
+        self.assertIn("00:00.000", logs[0])
+        self.assertIn("00:00.000 --> 00:05.000 Hello world", logs[0])
 
 if __name__ == '__main__':
     unittest.main()

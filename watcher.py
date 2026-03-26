@@ -120,11 +120,16 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
 
             return downloaded_file_path
         else:
-            # THE FIX: Print the actual error message instead of just "Return Code 1"
+            # Report the specific yt-dlp error if found, otherwise fall back to the last few output lines
             if logger_callback:
-                err_strings = [str(x) for x in error_log[-3:] if x is not None] # type: ignore
-                last_errors = "\n".join(err_strings)
-                logger_callback(f"❌ Download failed! yt-dlp says:\n{last_errors}")
+                specific_errors = [str(line) for line in error_log if line is not None and "ERROR:" in str(line)]
+                if specific_errors:
+                    err_msg = "\n".join(specific_errors)
+                else:
+                    err_strings = [str(x) for x in error_log[-3:] if x is not None]
+                    err_msg = "\n".join(err_strings)
+
+                logger_callback(f"❌ Download failed! yt-dlp says:\n{err_msg}")
             return None
 
     except Exception as e:
