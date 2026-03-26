@@ -1128,6 +1128,16 @@ class ClipGenApp(ctk.CTk):
             self.console_box.configure(state="disabled")
             
             threading.Thread(target=self._process_video_thread, args=(input_val,), daemon=True).start()
+        else:
+            if self.process_btn.cget("text") != "❌ Input Required":
+                self.original_process_btn_color = self.process_btn.cget("fg_color")
+                self.original_process_btn_text = self.process_btn.cget("text")
+
+            self.process_btn.configure(text="❌ Input Required", fg_color="#c0392b")
+            self.after(2000, lambda: self.process_btn.configure(
+                text=getattr(self, 'original_process_btn_text', "Process Queue"),
+                fg_color=getattr(self, 'original_process_btn_color', ["#3a7ebf", "#1f538d"])
+            ))
 
     def _process_video_thread(self, input_val):
         try:
