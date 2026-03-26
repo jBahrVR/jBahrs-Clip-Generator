@@ -163,7 +163,7 @@ class ClipGenApp(ctk.CTk):
         self.auto_controls_card.grid(row=1, column=0, padx=30, pady=10, sticky="ew")
         
         ctk.CTkLabel(self.auto_controls_card, text="Platform:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(20,10))
-        self.platform_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["YouTube", "Twitch"], width=110)
+        self.platform_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["YouTube", "Twitch", "Local Folder"], width=130)
         self.platform_menu.grid(row=0, column=1, padx=5, pady=(20,10))
         self.platform_menu.set(self.config.get("auto_scheduler", {}).get("platform", "YouTube"))
 

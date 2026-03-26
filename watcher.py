@@ -1,5 +1,7 @@
 import os
 import subprocess
+import time
+import json
 import config_manager # type: ignore
 import editor # type: ignore
 
@@ -135,6 +137,81 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
 def main(logger_callback=None):
     config = config_manager.load_config()
     platform = config.get("auto_scheduler", {}).get("platform", "YouTube")
+
+    if platform == "Local Folder":
+        download_dir = config.get("settings", {}).get("download_dir", "")
+        if not download_dir or not os.path.exists(download_dir):
+            if logger_callback:
+                logger_callback("❌ Error: Valid 'Raw VODs Folder' not set in Settings for Local Folder watcher.")
+            return
+
+        if logger_callback:
+            logger_callback(f"📡 Scanning Local Folder ({download_dir}) for new videos...")
+
+        registry_path = os.path.join(config_manager.get_app_data_path(), "processed_local_files.json")
+        processed_files = []
+        if os.path.exists(registry_path):
+            try:
+                with open(registry_path, 'r', encoding='utf-8') as f:
+                    processed_files = json.load(f)
+            except Exception:
+                pass
+
+        new_files_found = False
+
+        for file in os.listdir(download_dir):
+            if file.endswith((".mp4", ".mkv")):
+                file_path = os.path.join(download_dir, file)
+
+                if file_path in processed_files:
+                    continue
+
+                # Check if file has been modified recently (e.g. OBS is still writing to it)
+                mtime = os.path.getmtime(file_path)
+                current_time = time.time()
+
+                # If modified within the last 60 seconds, assume it's still being written to
+                if current_time - mtime < 60:
+                    if logger_callback:
+                        logger_callback(f"⏳ File '{file}' appears to be actively recording. Skipping for now.")
+                    continue
+
+                # File lock check
+                try:
+                    with open(file_path, 'rb+') as f:
+                        pass
+                except IOError:
+                    if logger_callback:
+                        logger_callback(f"🔒 File '{file}' is locked (likely still recording/copying). Skipping for now.")
+                    continue
+
+                new_files_found = True
+                if logger_callback:
+                    logger_callback(f"🎥 Found new local video: {file}! Starting processing...")
+
+                prompt_profile = config.get("auto_scheduler", {}).get("auto_prompt_profile", "Default VR")
+                if logger_callback:
+                    logger_callback(f"🧠 Passing VOD to AI Editor using profile: [{prompt_profile}]")
+
+                editor.process_video(file_path, prompt_profile=prompt_profile, logger=logger_callback, is_cancelled=lambda: False)
+
+                processed_files.append(file_path)
+
+                try:
+                    with open(registry_path, 'w', encoding='utf-8') as f:
+                        json.dump(processed_files, f)
+                except Exception as e:
+                    if logger_callback:
+                        logger_callback(f"⚠️ Failed to save local processed registry: {e}")
+
+                if logger_callback:
+                    logger_callback("🏁 Auto-Scheduler finished processing the new video!")
+
+        if not new_files_found:
+            if logger_callback:
+                logger_callback("😴 No new videos found.")
+        return
+
     yt_id = config.get("youtube", {}).get("channel_id", "")
     twitch_user = config.get("twitch", {}).get("username", "")
 
