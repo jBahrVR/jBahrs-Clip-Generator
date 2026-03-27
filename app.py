@@ -1038,6 +1038,15 @@ class ClipGenApp(ctk.CTk):
     def confirm_delete_marked(self):
         files_to_delete = [f for f, var in getattr(self, 'marked_for_deletion', {}).items() if var.get()]
         if not files_to_delete:
+            if self.delete_marked_btn.cget("text") != "⚠️ No clips selected":
+                self.original_delete_btn_color = self.delete_marked_btn.cget("fg_color")
+                self.original_delete_btn_text = self.delete_marked_btn.cget("text")
+
+            self.delete_marked_btn.configure(text="⚠️ No clips selected", fg_color="#e67e22")
+            self.after(2000, lambda: self.delete_marked_btn.configure(
+                text=getattr(self, 'original_delete_btn_text', "🗑️ Delete Marked Clips"),
+                fg_color=getattr(self, 'original_delete_btn_color', "#c0392b")
+            ))
             return
             
         from tkinter import messagebox
