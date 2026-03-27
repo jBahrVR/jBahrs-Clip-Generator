@@ -8,3 +8,7 @@
 ## 2024-05-28 - Dynamic text states can permanently truncate UI if not restored properly
 **Learning:** When using transient UI feedback like temporarily changing button text to 'Saved!', hardcoding the restore text (e.g., reverting to 'Save Prompt') can inadvertently overwrite context-specific original text (e.g., 'Save Current Prompt'), confusing users and corrupting the UI.
 **Action:** Always programmatically store the original state (`widget.cget('text')`) before modifying, and use that stored property to restore the UI.
+
+## $(date +%Y-%m-%d) - Prevent silent failure on empty actions
+**Learning:** Actions that depend on a selection (like deleting marked clips) that silently `return` when the selection is empty leave users confused, as they get no feedback indicating why their click had no effect.
+**Action:** When a destructive or state-changing action is blocked by an empty selection state, temporarily update the trigger button with an error/warning state (e.g., "⚠️ No clips selected" and a distinct color like orange) before restoring its original state using `widget.cget()`.
