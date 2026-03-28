@@ -12,3 +12,6 @@
 ## $(date +%Y-%m-%d) - Prevent silent failure on empty actions
 **Learning:** Actions that depend on a selection (like deleting marked clips) that silently `return` when the selection is empty leave users confused, as they get no feedback indicating why their click had no effect.
 **Action:** When a destructive or state-changing action is blocked by an empty selection state, temporarily update the trigger button with an error/warning state (e.g., "⚠️ No clips selected" and a distinct color like orange) before restoring its original state using `widget.cget()`.
+## 2025-02-28 - Transient visual feedback for actions with no selection or missing dependencies
+**Learning:** For actions like opening external files (Readme) or directories (Clips), or for forms missing required inputs (Discord URL, Profile Name), users get no feedback if the action silently aborts because the dependencies or inputs are missing. This makes the UI feel unresponsive or broken.
+**Action:** Created and used a reusable helper method `_show_transient_button_state` that temporarily changes a widget's text and color to a warning state (e.g., "⚠️ Not Found", "⚠️ No URL", "⚠️ Empty") before restoring its original state using stored widget properties. This ensures users get immediate, non-intrusive feedback on why their action failed, standardizing the UX.
