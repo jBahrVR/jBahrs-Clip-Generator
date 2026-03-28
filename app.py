@@ -84,16 +84,16 @@ class ClipGenApp(ctk.CTk):
         self.quick_access_label = ctk.CTkLabel(self.sidebar_frame, text="Quick Access", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray")
         self.quick_access_label.grid(row=7, column=0, padx=20, pady=(20, 0), sticky="w")
 
-        self.open_vods_btn = ctk.CTkButton(self.sidebar_frame, text="📁 Raw VODs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("download_dir"))
+        self.open_vods_btn = ctk.CTkButton(self.sidebar_frame, text="📁 Raw VODs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("download_dir", self.open_vods_btn))
         self.open_vods_btn.grid(row=8, column=0, padx=20, pady=(5, 5), sticky="ew")
 
-        self.open_clips_btn = ctk.CTkButton(self.sidebar_frame, text="✂️ Generated Clips", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("clips_dir"))
+        self.open_clips_btn = ctk.CTkButton(self.sidebar_frame, text="✂️ Generated Clips", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("clips_dir", self.open_clips_btn))
         self.open_clips_btn.grid(row=9, column=0, padx=20, pady=(5, 5), sticky="ew")
 
         self.open_logs_btn = ctk.CTkButton(self.sidebar_frame, text="📝 View Crash Logs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=self.open_logs)
         self.open_logs_btn.grid(row=10, column=0, padx=20, pady=(5, 5), sticky="ew")
 
-        self.open_readme_btn = ctk.CTkButton(self.sidebar_frame, text="📖 View Readme", fg_color="#2b2b2b", hover_color="#3b3b3b", command=self.open_readme)
+        self.open_readme_btn = ctk.CTkButton(self.sidebar_frame, text="📖 View Readme", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_readme(self.open_readme_btn))
         self.open_readme_btn.grid(row=11, column=0, padx=20, pady=(5, 20), sticky="ew")
 
         self.discord_btn = ctk.CTkButton(self.sidebar_frame, text="💬 Join Discord", fg_color="#5865F2", hover_color="#4752C4", command=lambda: webbrowser.open("https://discord.gg/uUF8J9Zqwz"))
@@ -632,9 +632,32 @@ class ClipGenApp(ctk.CTk):
             self.after(3000, lambda: self.test_google_btn.configure(text="Test Key", fg_color=["#3a7ebf", "#1f538d"]))
         threading.Thread(target=run_test, daemon=True).start()
 
+    def _show_transient_button_state(self, widget, temp_text, temp_color="#e67e22", duration=2000):
+        if not widget:
+            return
+
+        if widget.cget("text") != temp_text:
+            # Store original state directly on the widget object to prevent overwriting
+            # if multiple rapid clicks occur
+            if not hasattr(widget, "_orig_text"):
+                widget._orig_text = widget.cget("text")
+                widget._orig_color = widget.cget("fg_color")
+
+        widget.configure(text=temp_text, fg_color=temp_color)
+
+        def restore():
+            if hasattr(widget, "_orig_text"):
+                widget.configure(text=widget._orig_text, fg_color=widget._orig_color)
+                delattr(widget, "_orig_text")
+                delattr(widget, "_orig_color")
+
+        self.after(duration, restore)
+
     def test_discord_webhook(self):
         url = self.discord_entry.get().strip()
-        if not url: return
+        if not url:
+            self._show_transient_button_state(self.test_discord_btn, "⚠️ No URL")
+            return
         self.test_discord_btn.configure(text="Testing...", fg_color="#e67e22")
         def run_test():
             try:
@@ -755,14 +778,20 @@ class ClipGenApp(ctk.CTk):
             if hasattr(os, 'startfile'):
                 os.startfile(os.path.abspath(app_data_path)) # type: ignore
 
-    def open_local_folder(self, key):
+    def open_local_folder(self, key, widget=None):
         path = self.config.get('settings', {}).get(key, "")
-        if path and hasattr(os, 'startfile'): 
+        if path and os.path.exists(path) and hasattr(os, 'startfile'):
             os.startfile(os.path.abspath(path)) # type: ignore
+        else:
+            self._show_transient_button_state(widget, "⚠️ Not Found")
 
-    def open_readme(self):
+    def open_readme(self, widget=None):
         if os.path.exists("README.md") and hasattr(os, 'startfile'): 
             os.startfile(os.path.abspath("README.md")) # type: ignore
+        elif os.path.exists("readme.md") and hasattr(os, 'startfile'):
+            os.startfile(os.path.abspath("readme.md")) # type: ignore
+        else:
+            self._show_transient_button_state(widget, "⚠️ Not Found")
 
     def get_video_id(self, url):
         try:
@@ -838,6 +867,9 @@ class ClipGenApp(ctk.CTk):
         dialog = ctk.CTkInputDialog(text="Enter a name for your new prompt profile:", title="New Profile")
         new_name = dialog.get_input()
         
+        if new_name is None:
+            return  # user canceled
+
         if new_name:
             new_name = new_name.strip()
             if new_name and new_name not in self.config["prompts"]["profiles"]:
@@ -846,6 +878,12 @@ class ClipGenApp(ctk.CTk):
                 config_manager.save_config(self.config)
                 self.load_prompt_data()
                 self.log_to_console(f"📝 Created new prompt profile: '{new_name}'")
+            elif new_name in self.config["prompts"]["profiles"]:
+                self._show_transient_button_state(self.new_profile_btn, "⚠️ Exists")
+            else:
+                self._show_transient_button_state(self.new_profile_btn, "⚠️ Empty")
+        else:
+            self._show_transient_button_state(self.new_profile_btn, "⚠️ Empty")
 
     def save_current_prompt(self):
         active = self.profile_dropdown.get()
