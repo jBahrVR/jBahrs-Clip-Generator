@@ -177,8 +177,7 @@ def main(logger_callback=None):
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
-        output_lines = result.stdout.strip().split('\n')
-        latest_id = output_lines[0] if output_lines and output_lines[0] else None
+        latest_id = result.stdout.strip().partition('\n')[0] if result.stdout.strip() else None
         
         # 👈 THE FIX: Strip the stray 'v' from Twitch IDs so the URL doesn't 404
         if platform == "Twitch" and latest_id and isinstance(latest_id, str) and latest_id.startswith("v"):

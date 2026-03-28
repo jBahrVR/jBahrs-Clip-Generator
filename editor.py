@@ -484,7 +484,7 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
 
     # Estimate token count based on a common heuristic (1 token ~= 4 chars or ~0.75 words)
     # Using roughly 1.3 tokens per word as a general English baseline.
-    word_count = len(full_transcript.split())
+    word_count = full_transcript.count(' ') + 1 if full_transcript.strip() else 0
     estimated_tokens = int(word_count * 1.3)
     if logger:
         logger(f"📊 Extracted approx {estimated_tokens:,} tokens ({word_count:,} words) for the AI model's context window.")
