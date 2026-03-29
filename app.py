@@ -19,6 +19,7 @@ import editor # type: ignore
 import pystray # type: ignore
 import json
 import urllib.request
+import urllib.parse
 from PIL import Image # type: ignore
 import logging
 from logging.handlers import RotatingFileHandler
@@ -661,7 +662,8 @@ class ClipGenApp(ctk.CTk):
         self.test_discord_btn.configure(text="Testing...", fg_color="#e67e22")
         def run_test():
             try:
-                if not url.startswith("https://discord.com/"):
+                parsed = urllib.parse.urlparse(url)
+                if parsed.scheme != "https" or parsed.hostname != "discord.com" or not parsed.path.startswith("/api/webhooks/"):
                     raise ValueError("Invalid Discord URL")
                 headers = {
                     "Content-Type": "application/json",
@@ -687,7 +689,8 @@ class ClipGenApp(ctk.CTk):
         if not url: return
         def run_alert():
             try:
-                if not url.startswith("https://discord.com/"):
+                parsed = urllib.parse.urlparse(url)
+                if parsed.scheme != "https" or parsed.hostname != "discord.com" or not parsed.path.startswith("/api/webhooks/"):
                     return
                 payload = {
                     "content": None,
