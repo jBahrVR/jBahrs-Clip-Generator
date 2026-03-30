@@ -97,9 +97,11 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
                         logger_callback(f"[yt-dlp]: {line}")
                 
                 if "Merging formats into" in line:
-                    parts = line.split('"')
-                    if len(parts) >= 3:
-                        downloaded_file_path = parts[1]
+                    # Using partition instead of split to avoid full list allocation
+                    _, _, remainder = line.partition('"')
+                    path_part, _, _ = remainder.partition('"')
+                    if path_part:
+                        downloaded_file_path = path_part
 
         process.wait()
 
