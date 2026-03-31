@@ -53,7 +53,7 @@ def analyze_audio_peaks_optimized(audio_array, segments, sample_rate=16000, peak
 
         rms = 0.0
         if peak_detection or combat_detection:
-            rms = float(np.sqrt(np.mean(chunk**2)))
+            rms = float(np.linalg.norm(chunk) / np.sqrt(len(chunk)))
 
         loudness = 0
         if peak_detection:
