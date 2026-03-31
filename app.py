@@ -711,7 +711,7 @@ class ClipGenApp(ctk.CTk):
         def run_test():
             try:
                 parsed = urllib.parse.urlparse(url)
-                if parsed.scheme != "https" or parsed.hostname != "discord.com" or not parsed.path.startswith("/api/webhooks/"):
+                if parsed.scheme != "https" or parsed.hostname != "discord.com" or not parsed.path.startswith("/api/webhooks/") or ".." in urllib.parse.unquote(parsed.path):
                     raise ValueError("Invalid Discord URL")
                 headers = {
                     "Content-Type": "application/json",
@@ -738,7 +738,7 @@ class ClipGenApp(ctk.CTk):
         def run_alert():
             try:
                 parsed = urllib.parse.urlparse(url)
-                if parsed.scheme != "https" or parsed.hostname != "discord.com" or not parsed.path.startswith("/api/webhooks/"):
+                if parsed.scheme != "https" or parsed.hostname != "discord.com" or not parsed.path.startswith("/api/webhooks/") or ".." in urllib.parse.unquote(parsed.path):
                     return
                 payload = {
                     "content": None,
