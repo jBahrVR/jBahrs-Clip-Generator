@@ -31,7 +31,7 @@ def new_logic(chunk, peak_detection, combat_detection):
     loudness = 0
     rms = None
     if peak_detection or combat_detection:
-        rms = np.sqrt(np.mean(chunk**2))
+        rms = float(np.linalg.norm(chunk) / np.sqrt(len(chunk)))
 
     if peak_detection:
         loudness = min(100, int((rms / 0.1) * 100))
