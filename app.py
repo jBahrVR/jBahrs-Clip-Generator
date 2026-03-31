@@ -63,40 +63,40 @@ class ClipGenApp(ctk.CTk):
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="jBahr's Clip\nGenerator", font=ctk.CTkFont(size=24, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=(30, 20))
 
-        self.nav_manual_btn = ctk.CTkButton(self.sidebar_frame, text="🎬 Manual Clipper", fg_color="transparent", border_width=1, command=self.show_manual_frame)
+        self.nav_manual_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="🎬 Manual Clipper", fg_color="transparent", border_width=1, command=self.show_manual_frame)
         self.nav_manual_btn.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
 
-        self.nav_auto_btn = ctk.CTkButton(self.sidebar_frame, text="⏳ Auto Scheduler", fg_color="transparent", border_width=1, command=self.show_auto_frame)
+        self.nav_auto_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="⏳ Auto Scheduler", fg_color="transparent", border_width=1, command=self.show_auto_frame)
         self.nav_auto_btn.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
 
-        self.nav_prompt_btn = ctk.CTkButton(self.sidebar_frame, text="📝 Prompt Manager", fg_color="transparent", border_width=1, command=self.show_prompt_frame)
+        self.nav_prompt_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="📝 Prompt Manager", fg_color="transparent", border_width=1, command=self.show_prompt_frame)
         self.nav_prompt_btn.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
 
-        self.nav_settings_btn = ctk.CTkButton(self.sidebar_frame, text="⚙️ Settings", fg_color="transparent", border_width=1, command=self.show_settings_frame)
+        self.nav_settings_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="⚙️ Settings", fg_color="transparent", border_width=1, command=self.show_settings_frame)
         self.nav_settings_btn.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
 
-        self.nav_gallery_btn = ctk.CTkButton(self.sidebar_frame, text="🖼️ Clip Gallery", fg_color="transparent", border_width=1, command=self.show_gallery_frame)
+        self.nav_gallery_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="🖼️ Clip Gallery", fg_color="transparent", border_width=1, command=self.show_gallery_frame)
         self.nav_gallery_btn.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
 
-        self.github_btn = ctk.CTkButton(self.sidebar_frame, text="🌐 GitHub Repo", fg_color="#24292e", hover_color="#2f363d", command=lambda: webbrowser.open("https://github.com/jBahrVR/jBahrs-Clip-Generator"))
+        self.github_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="🌐 GitHub Repo", fg_color="#24292e", hover_color="#2f363d", command=lambda: webbrowser.open("https://github.com/jBahrVR/jBahrs-Clip-Generator"))
         self.github_btn.grid(row=6, column=0, padx=20, pady=(10, 0), sticky="ew")
 
         self.quick_access_label = ctk.CTkLabel(self.sidebar_frame, text="Quick Access", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray")
         self.quick_access_label.grid(row=7, column=0, padx=20, pady=(20, 0), sticky="w")
 
-        self.open_vods_btn = ctk.CTkButton(self.sidebar_frame, text="📁 Raw VODs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("download_dir", self.open_vods_btn))
+        self.open_vods_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="📁 Raw VODs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("download_dir", self.open_vods_btn))
         self.open_vods_btn.grid(row=8, column=0, padx=20, pady=(5, 5), sticky="ew")
 
-        self.open_clips_btn = ctk.CTkButton(self.sidebar_frame, text="✂️ Generated Clips", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("clips_dir", self.open_clips_btn))
+        self.open_clips_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="✂️ Generated Clips", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("clips_dir", self.open_clips_btn))
         self.open_clips_btn.grid(row=9, column=0, padx=20, pady=(5, 5), sticky="ew")
 
-        self.open_logs_btn = ctk.CTkButton(self.sidebar_frame, text="📝 View Crash Logs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=self.open_logs)
+        self.open_logs_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="📝 View Crash Logs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=self.open_logs)
         self.open_logs_btn.grid(row=10, column=0, padx=20, pady=(5, 5), sticky="ew")
 
-        self.open_readme_btn = ctk.CTkButton(self.sidebar_frame, text="📖 View Readme", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_readme(self.open_readme_btn))
+        self.open_readme_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="📖 View Readme", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_readme(self.open_readme_btn))
         self.open_readme_btn.grid(row=11, column=0, padx=20, pady=(5, 20), sticky="ew")
 
-        self.discord_btn = ctk.CTkButton(self.sidebar_frame, text="💬 Join Discord", fg_color="#5865F2", hover_color="#4752C4", command=lambda: webbrowser.open("https://discord.gg/uUF8J9Zqwz"))
+        self.discord_btn = ctk.CTkButton(self.sidebar_frame, cursor="hand2", text="💬 Join Discord", fg_color="#5865F2", hover_color="#4752C4", command=lambda: webbrowser.open("https://discord.gg/uUF8J9Zqwz"))
         self.discord_btn.grid(row=12, column=0, padx=20, pady=(5, 5), sticky="ew")
 
         self.version_label = ctk.CTkLabel(self.sidebar_frame, text="v1.2.1 Creator Edition", font=ctk.CTkFont(size=10), text_color="gray")
@@ -119,13 +119,13 @@ class ClipGenApp(ctk.CTk):
         self.url_input.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
         self.url_input.bind("<Return>", self.start_manual_process)
         
-        self.process_btn = ctk.CTkButton(self.input_card, text="Process Queue", height=45, text_color="#FFFFFF", font=ctk.CTkFont(weight="bold"), command=self.start_manual_process)
+        self.process_btn = ctk.CTkButton(self.input_card, cursor="hand2", text="Process Queue", height=45, text_color="#FFFFFF", font=ctk.CTkFont(weight="bold"), command=self.start_manual_process)
         self.process_btn.grid(row=0, column=1, padx=(0, 10), pady=20)
 
-        self.cancel_btn = ctk.CTkButton(self.input_card, text="Cancel", height=45, text_color="#FFFFFF", fg_color="#c0392b", hover_color="#922b21", font=ctk.CTkFont(weight="bold"), state="disabled", command=self.cancel_manual_process)
+        self.cancel_btn = ctk.CTkButton(self.input_card, cursor="hand2", text="Cancel", height=45, text_color="#FFFFFF", fg_color="#c0392b", hover_color="#922b21", font=ctk.CTkFont(weight="bold"), state="disabled", command=self.cancel_manual_process)
         self.cancel_btn.grid(row=0, column=2, padx=(0, 10), pady=20)
 
-        self.local_file_btn = ctk.CTkButton(self.input_card, text="📂 Browse Files", height=45, text_color="#FFFFFF", fg_color="#27ae60", hover_color="#1e8449", font=ctk.CTkFont(weight="bold"), command=self.browse_local_file)
+        self.local_file_btn = ctk.CTkButton(self.input_card, cursor="hand2", text="📂 Browse Files", height=45, text_color="#FFFFFF", fg_color="#27ae60", hover_color="#1e8449", font=ctk.CTkFont(weight="bold"), command=self.browse_local_file)
         self.local_file_btn.grid(row=0, column=3, padx=(0, 20), pady=20)
         
         self.manual_status_label = ctk.CTkLabel(self.manual_frame, text="Status: Ready", font=ctk.CTkFont(size=14, weight="bold"), text_color="#a0a0a0")
@@ -230,10 +230,10 @@ class ClipGenApp(ctk.CTk):
         self.profile_dropdown = ctk.CTkOptionMenu(self.prompt_select_card, command=self.on_profile_change)
         self.profile_dropdown.pack(side="left", padx=10)
 
-        self.new_profile_btn = ctk.CTkButton(self.prompt_select_card, text="➕ New", width=60, fg_color="#27ae60", hover_color="#1e8449", command=self.create_new_profile)
+        self.new_profile_btn = ctk.CTkButton(self.prompt_select_card, cursor="hand2", text="➕ New", width=60, fg_color="#27ae60", hover_color="#1e8449", command=self.create_new_profile)
         self.new_profile_btn.pack(side="left", padx=5)
 
-        self.delete_profile_btn = ctk.CTkButton(self.prompt_select_card, text="Delete Profile", fg_color="#c0392b", hover_color="#922b21", command=self.delete_profile)
+        self.delete_profile_btn = ctk.CTkButton(self.prompt_select_card, cursor="hand2", text="Delete Profile", fg_color="#c0392b", hover_color="#922b21", command=self.delete_profile)
         self.delete_profile_btn.pack(side="right", padx=20)
 
         self.prompt_editor_card = ctk.CTkFrame(self.prompt_frame, corner_radius=15)
@@ -244,7 +244,7 @@ class ClipGenApp(ctk.CTk):
         self.prompt_textbox = ctk.CTkTextbox(self.prompt_editor_card, font=ctk.CTkFont(size=14), wrap="word")
         self.prompt_textbox.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
 
-        self.save_prompt_btn = ctk.CTkButton(self.prompt_editor_card, text="Save Current Prompt", height=40, font=ctk.CTkFont(weight="bold"), command=self.save_current_prompt)
+        self.save_prompt_btn = ctk.CTkButton(self.prompt_editor_card, cursor="hand2", text="Save Current Prompt", height=40, font=ctk.CTkFont(weight="bold"), command=self.save_current_prompt)
         self.save_prompt_btn.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="e")
 
     def _setup_settings_frame(self):
@@ -278,7 +278,7 @@ class ClipGenApp(ctk.CTk):
         self.openai_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="sk-proj-...")
         self.openai_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.openai_entry.insert(0, self.config.get('openai', {}).get('api_key', ''))
-        self.test_openai_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_openai_key)
+        self.test_openai_btn = ctk.CTkButton(self.api_card, cursor="hand2", text="Test Key", width=80, command=self.test_openai_key)
         self.test_openai_btn.grid(row=3, column=2, padx=(0, 20), pady=5, sticky="e")
 
         ctk.CTkLabel(self.api_card, text="Custom Base URL (DeepSeek/OpenRouter):", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=5, sticky="e")
@@ -292,7 +292,7 @@ class ClipGenApp(ctk.CTk):
         self.anthropic_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="sk-ant-...")
         self.anthropic_entry.grid(row=5, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.anthropic_entry.insert(0, self.config.get('anthropic', {}).get('api_key', ''))
-        self.test_anthropic_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_anthropic_key)
+        self.test_anthropic_btn = ctk.CTkButton(self.api_card, cursor="hand2", text="Test Key", width=80, command=self.test_anthropic_key)
         self.test_anthropic_btn.grid(row=5, column=2, padx=(0, 20), pady=5, sticky="e")
 
         self.grok_link_label = ctk.CTkLabel(self.api_card, text="Grok/xAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
@@ -301,7 +301,7 @@ class ClipGenApp(ctk.CTk):
         self.grok_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="xai-...")
         self.grok_entry.grid(row=6, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.grok_entry.insert(0, self.config.get('xai', {}).get('api_key', ''))
-        self.test_grok_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_grok_key)
+        self.test_grok_btn = ctk.CTkButton(self.api_card, cursor="hand2", text="Test Key", width=80, command=self.test_grok_key)
         self.test_grok_btn.grid(row=6, column=2, padx=(0, 20), pady=5, sticky="e")
 
         self.google_link_label = ctk.CTkLabel(self.api_card, text="Google API Key (Get Free):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
@@ -310,14 +310,14 @@ class ClipGenApp(ctk.CTk):
         self.google_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="AIzaSy...")
         self.google_entry.grid(row=7, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.google_entry.insert(0, self.config.get('google', {}).get('api_key', ''))
-        self.test_google_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_google_key)
+        self.test_google_btn = ctk.CTkButton(self.api_card, cursor="hand2", text="Test Key", width=80, command=self.test_google_key)
         self.test_google_btn.grid(row=7, column=2, padx=(0, 20), pady=5, sticky="e")
 
         ctk.CTkLabel(self.api_card, text="Discord Webhook URL (Optional):", font=ctk.CTkFont(weight="bold")).grid(row=8, column=0, padx=20, pady=5, sticky="e")
         self.discord_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="https://discord.com/api/webhooks/...")
         self.discord_entry.grid(row=8, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.discord_entry.insert(0, self.config.get('integrations', {}).get('discord_webhook', ''))
-        self.test_discord_btn = ctk.CTkButton(self.api_card, text="Test Alert", width=80, command=self.test_discord_webhook)
+        self.test_discord_btn = ctk.CTkButton(self.api_card, cursor="hand2", text="Test Alert", width=80, command=self.test_discord_webhook)
         self.test_discord_btn.grid(row=8, column=2, padx=(0, 20), pady=5, sticky="e")
 
         ctk.CTkLabel(self.api_card, text="AI Chat Model:", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=20, pady=5, sticky="e")
@@ -358,14 +358,14 @@ class ClipGenApp(ctk.CTk):
         self.vod_dir_entry = ctk.CTkEntry(self.paths_card, height=35, placeholder_text="C:\\Videos\\Raw")
         self.vod_dir_entry.grid(row=2, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.vod_dir_entry.insert(0, self.config.get('settings', {}).get('download_dir', ''))
-        self.vod_browse_btn = ctk.CTkButton(self.paths_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.vod_dir_entry))
+        self.vod_browse_btn = ctk.CTkButton(self.paths_card, cursor="hand2", text="Browse...", width=80, command=lambda: self.browse_folder(self.vod_dir_entry))
         self.vod_browse_btn.grid(row=2, column=2, padx=(0, 20), pady=5, sticky="e")
 
         ctk.CTkLabel(self.paths_card, text="Generated Clips Folder:", font=ctk.CTkFont(weight="bold")).grid(row=3, column=0, padx=20, pady=5, sticky="e")
         self.clip_dir_entry = ctk.CTkEntry(self.paths_card, height=35, placeholder_text="C:\\Videos\\Clips")
         self.clip_dir_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
         self.clip_dir_entry.insert(0, self.config.get('settings', {}).get('clips_dir', ''))
-        self.clip_browse_btn = ctk.CTkButton(self.paths_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.clip_dir_entry))
+        self.clip_browse_btn = ctk.CTkButton(self.paths_card, cursor="hand2", text="Browse...", width=80, command=lambda: self.browse_folder(self.clip_dir_entry))
         self.clip_browse_btn.grid(row=3, column=2, padx=(0, 20), pady=5, sticky="e")
 
         ctk.CTkLabel(self.paths_card, text="Auth Browser (Cookies):", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=(5, 15), sticky="e")
@@ -463,7 +463,7 @@ class ClipGenApp(ctk.CTk):
         self.help_label = ctk.CTkLabel(self.help_card, text=help_text, justify="left", font=ctk.CTkFont(size=12), padx=20, pady=20)
         self.help_label.pack(anchor="w")
 
-        self.save_btn = ctk.CTkButton(self.settings_frame, text="Save Settings", height=45, font=ctk.CTkFont(weight="bold"), command=self.save_settings)
+        self.save_btn = ctk.CTkButton(self.settings_frame, cursor="hand2", text="Save Settings", height=45, font=ctk.CTkFont(weight="bold"), command=self.save_settings)
         self.save_btn.grid(row=5, column=0, padx=30, pady=20, sticky="e")
 
     def _setup_gallery_frame(self):
@@ -510,10 +510,10 @@ class ClipGenApp(ctk.CTk):
         self.select_all_checkbox = ctk.CTkCheckBox(self.gallery_actions_frame, text="Select All", variable=self.select_all_var, command=self.toggle_select_all)
         self.select_all_checkbox.pack(side="left", padx=(0, 10))
 
-        self.refresh_gallery_btn = ctk.CTkButton(self.gallery_actions_frame, text="🔄 Refresh List", command=self.refresh_gallery_action)
+        self.refresh_gallery_btn = ctk.CTkButton(self.gallery_actions_frame, cursor="hand2", text="🔄 Refresh List", command=self.refresh_gallery_action)
         self.refresh_gallery_btn.pack(side="right", fill="x", expand=True)
 
-        self.delete_marked_btn = ctk.CTkButton(self.gallery_frame, text="🗑️ Delete Marked Clips", fg_color="#c0392b", hover_color="#922b21", command=self.confirm_delete_marked)
+        self.delete_marked_btn = ctk.CTkButton(self.gallery_frame, cursor="hand2", text="🗑️ Delete Marked Clips", fg_color="#c0392b", hover_color="#922b21", command=self.confirm_delete_marked)
         self.delete_marked_btn.grid(row=5, column=0, padx=(30, 10), pady=(0, 20), sticky="ew")
 
         self.details_card = ctk.CTkFrame(self.gallery_frame, corner_radius=15)
@@ -537,10 +537,10 @@ class ClipGenApp(ctk.CTk):
         self.gallery_btns_frame.grid(row=4, column=0, padx=20, pady=20, sticky="ew")
         self.gallery_btns_frame.grid_columnconfigure((0, 1), weight=1)
 
-        self.play_clip_btn = ctk.CTkButton(self.gallery_btns_frame, text="▶️ Play Clip", height=50, font=ctk.CTkFont(weight="bold"), state="disabled")
+        self.play_clip_btn = ctk.CTkButton(self.gallery_btns_frame, cursor="hand2", text="▶️ Play Clip", height=50, font=ctk.CTkFont(weight="bold"), state="disabled")
         self.play_clip_btn.grid(row=0, column=0, padx=(0, 5), sticky="ew")
 
-        self.open_folder_btn = ctk.CTkButton(self.gallery_btns_frame, text="📁 Open Folder", height=50, font=ctk.CTkFont(weight="bold"), state="disabled", fg_color="#2b2b2b", hover_color="#3b3b3b")
+        self.open_folder_btn = ctk.CTkButton(self.gallery_btns_frame, cursor="hand2", text="📁 Open Folder", height=50, font=ctk.CTkFont(weight="bold"), state="disabled", fg_color="#2b2b2b", hover_color="#3b3b3b")
         self.open_folder_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
     def _init_logging(self):
@@ -1065,7 +1065,7 @@ class ClipGenApp(ctk.CTk):
             checkbox = ctk.CTkCheckBox(row_frame, text="", variable=self.marked_for_deletion[file], width=20)
             checkbox.pack(side="left", padx=(0, 5))
 
-            btn = ctk.CTkButton(row_frame, text=file, fg_color="#2b2b2b", hover_color="#3b3b3b", anchor="w", 
+            btn = ctk.CTkButton(row_frame, cursor="hand2", text=file, fg_color="#2b2b2b", hover_color="#3b3b3b", anchor="w",
                                 command=lambda f=file: self.load_clip_details(f, clips_dir))
             btn.pack(side="left", fill="x", expand=True)
 
