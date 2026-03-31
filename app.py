@@ -263,6 +263,7 @@ class ClipGenApp(ctk.CTk):
         # --- Card 1: APIs & Models ---
         self.api_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
         self.api_card.grid(row=1, column=0, padx=30, pady=(5, 10), sticky="ew")
+        self.api_card.grid_columnconfigure(0, minsize=220)
         self.api_card.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(self.api_card, text="Authentication & AI Models", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
@@ -285,6 +286,7 @@ class ClipGenApp(ctk.CTk):
         # --- OpenAI / Custom Section ---
         self.openai_frame = ctk.CTkFrame(self.api_card, fg_color=provider_bg_1, corner_radius=10)
         self.openai_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=10, padx=10)
+        self.openai_frame.grid_columnconfigure(0, minsize=220)
         self.openai_frame.grid_columnconfigure(1, weight=1)
 
         self.openai_radio = ctk.CTkRadioButton(self.openai_frame, text="OpenAI / Custom API:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="openai")
@@ -313,6 +315,7 @@ class ClipGenApp(ctk.CTk):
         # --- Anthropic Section ---
         self.anthropic_frame = ctk.CTkFrame(self.api_card, fg_color=provider_bg_2, corner_radius=10)
         self.anthropic_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=10, padx=10)
+        self.anthropic_frame.grid_columnconfigure(0, minsize=220)
         self.anthropic_frame.grid_columnconfigure(1, weight=1)
 
         self.anthropic_radio = ctk.CTkRadioButton(self.anthropic_frame, text="Anthropic Engine:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="anthropic")
@@ -333,6 +336,7 @@ class ClipGenApp(ctk.CTk):
         # --- Grok Section ---
         self.xai_frame = ctk.CTkFrame(self.api_card, fg_color=provider_bg_1, corner_radius=10)
         self.xai_frame.grid(row=6, column=0, columnspan=3, sticky="ew", pady=10, padx=10)
+        self.xai_frame.grid_columnconfigure(0, minsize=220)
         self.xai_frame.grid_columnconfigure(1, weight=1)
 
         self.grok_radio = ctk.CTkRadioButton(self.xai_frame, text="Grok / xAI Engine:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="xai")
@@ -353,6 +357,7 @@ class ClipGenApp(ctk.CTk):
         # --- Google Section ---
         self.google_frame = ctk.CTkFrame(self.api_card, fg_color=provider_bg_2, corner_radius=10)
         self.google_frame.grid(row=7, column=0, columnspan=3, sticky="ew", pady=10, padx=10)
+        self.google_frame.grid_columnconfigure(0, minsize=220)
         self.google_frame.grid_columnconfigure(1, weight=1)
 
         self.google_radio = ctk.CTkRadioButton(self.google_frame, text="Google Gemini:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="google")
@@ -394,6 +399,7 @@ class ClipGenApp(ctk.CTk):
         # --- Card 2: Paths & Downloads ---
         self.paths_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
         self.paths_card.grid(row=2, column=0, padx=30, pady=(5, 10), sticky="ew")
+        self.paths_card.grid_columnconfigure(0, minsize=220)
         self.paths_card.grid_columnconfigure(1, weight=1)
         
         ctk.CTkLabel(self.paths_card, text="Paths & Downloads", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
@@ -425,6 +431,7 @@ class ClipGenApp(ctk.CTk):
         # --- Card 3: Video Processing Rules ---
         self.proc_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
         self.proc_card.grid(row=3, column=0, padx=30, pady=(5, 10), sticky="ew")
+        self.proc_card.grid_columnconfigure(0, minsize=220)
         self.proc_card.grid_columnconfigure(1, weight=1)
         
         ctk.CTkLabel(self.proc_card, text="Video Processing Rules", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
