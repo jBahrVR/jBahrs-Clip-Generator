@@ -8,6 +8,7 @@ from openai import OpenAI # type: ignore
 import numpy as np # type: ignore
 import io
 import contextlib
+from typing import Any
 
 class WhisperProgressStream(io.StringIO):
     def __init__(self, logger):
@@ -429,7 +430,7 @@ def _transcribe_audio_to_segments(file_path, config, logger, is_cancelled):
         fp16_enabled = True if device == "cuda" else False
         progress_stream = WhisperProgressStream(logger)
         with contextlib.redirect_stdout(progress_stream):
-            transcribe_kwargs = {
+            transcribe_kwargs: dict[str, Any] = {
                 "condition_on_previous_text": False,
                 "beam_size": 1,
                 "fp16": fp16_enabled,

@@ -58,6 +58,19 @@ def get_default_config():
             "audio_peak_detection": True,
             "combat_detection": True
         },
+        "active_ai_provider": "openai",
+        "openai_model": "gpt-4o",
+        "anthropic_model": "claude-3-5-sonnet-latest",
+        "google_model": "gemini-3-flash",
+        "xai_model": "grok-2-latest",
+        "cached_models": [
+            "gpt-4o", "gpt-4o-mini", 
+            "gemini-3-flash", "gemini-3-pro",
+            "gemini-2.0-flash", "gemini-2.0-pro",
+            "claude-3-5-sonnet-latest", "claude-3-5-haiku-latest",
+            "grok-2-latest", "grok-2-mini",
+            "deepseek-chat", "deepseek-reasoner"
+        ],
         "prompts": {
             "active_profile": "Omni-Genre Broad Net", 
             "profiles": {
@@ -134,6 +147,41 @@ def load_config():
             cfg.setdefault("anthropic", {"api_key": ""})
             cfg.setdefault("xai", {"api_key": ""})
             cfg.setdefault("integrations", {"discord_webhook": ""})
+            
+            # Migration/Defaults for new multi-provider UI
+            cfg.setdefault("active_ai_provider", "openai")
+            cfg.setdefault("openai_model", "gpt-4o")
+            cfg.setdefault("anthropic_model", "claude-3-5-sonnet-latest")
+            cfg.setdefault("google_model", "gemini-3-flash")
+            cfg.setdefault("xai_model", "grok-2-latest")
+            cfg.setdefault("deepseek_model", "deepseek-chat")
+            
+            # Migrate old chat_model to the correct field
+            old_chat_model = cfg.get("openai", {}).get("chat_model")
+            if old_chat_model:
+                if "gemini" in old_chat_model:
+                    cfg["google_model"] = old_chat_model
+                    cfg["active_ai_provider"] = "google"
+                elif "claude" in old_chat_model:
+                    cfg["anthropic_model"] = old_chat_model
+                    cfg["active_ai_provider"] = "anthropic"
+                elif "grok" in old_chat_model:
+                    cfg["xai_model"] = old_chat_model
+                    cfg["active_ai_provider"] = "xai"
+                elif "deepseek" in old_chat_model:
+                    cfg["deepseek_model"] = old_chat_model
+                    cfg["active_ai_provider"] = "openai" # deepseek uses openai/base_url logic
+                else:
+                    cfg["openai_model"] = old_chat_model
+                    cfg["active_ai_provider"] = "openai"
+                
+                # Cleanup old field to prevent confusion during next loads
+                # But keep it for backward compatibility if needed in editor.py
+                # I'll let update_ui in app.py handle syncing them.
+            
+            # Ensure cached_models exists
+            if "cached_models" not in cfg:
+                cfg["cached_models"] = get_default_config()["cached_models"]
             
             # MIGRATION UPDATE: Force update the default Omni-Genre prompt if they have the old version
             prompts = cfg.setdefault("prompts", {})

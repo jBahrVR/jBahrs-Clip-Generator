@@ -16,6 +16,7 @@ import time
 import webbrowser
 import watcher # type: ignore
 import editor # type: ignore
+import model_fetcher # type: ignore
 import pystray # type: ignore
 import json
 import urllib.request
@@ -53,6 +54,9 @@ class ClipGenApp(ctk.CTk):
 
         self.load_prompt_data()
         self.show_manual_frame()
+
+        # Start dynamic model fetching
+        threading.Thread(target=self.refresh_model_list, daemon=True).start()
 
     def _setup_sidebar(self):
         # ==================== SIDEBAR ====================
@@ -272,66 +276,107 @@ class ClipGenApp(ctk.CTk):
         self.twitch_entry.grid(row=2, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
         self.twitch_entry.insert(0, self.config.get('twitch', {}).get('username', ''))
 
-        self.api_link_label = ctk.CTkLabel(self.api_card, text="OpenAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
-        self.api_link_label.grid(row=3, column=0, padx=20, pady=5, sticky="e")
-        self.api_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://platform.openai.com/api-keys"))
-        self.openai_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="sk-proj-...")
-        self.openai_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
-        self.openai_entry.insert(0, self.config.get('openai', {}).get('api_key', ''))
-        self.test_openai_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_openai_key)
-        self.test_openai_btn.grid(row=3, column=2, padx=(0, 20), pady=5, sticky="e")
+        self.active_provider_var = ctk.StringVar(value=self.config.get("active_ai_provider", "openai"))
 
-        ctk.CTkLabel(self.api_card, text="Custom Base URL (DeepSeek/OpenRouter):", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=5, sticky="e")
-        self.base_url_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="Leave blank for OpenAI")
-        self.base_url_entry.grid(row=4, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
+        provider_bg_1 = "#252525"
+        provider_bg_2 = "#2a2a2a"
+
+        # --- OpenAI / Custom Section ---
+        self.openai_frame = ctk.CTkFrame(self.api_card, fg_color=provider_bg_1, corner_radius=10)
+        self.openai_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=10, padx=10)
+        self.openai_frame.grid_columnconfigure(1, weight=1)
+
+        self.openai_radio = ctk.CTkRadioButton(self.openai_frame, text="OpenAI / Custom API:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="openai")
+        self.openai_radio.grid(row=0, column=0, padx=20, pady=(15, 5), sticky="w")
+        
+        self.openai_entry = ctk.CTkEntry(self.openai_frame, show="•", height=35, placeholder_text="sk-proj-...")
+        self.openai_entry.grid(row=0, column=1, padx=(0, 10), pady=(15, 5), sticky="ew")
+        self.openai_entry.insert(0, self.config.get('openai', {}).get('api_key', ''))
+        self.openai_entry.bind("<KeyRelease>", lambda e: self._update_model_visibility())
+        
+        self.test_openai_btn = ctk.CTkButton(self.openai_frame, text="Test Key", width=90, height=35, command=self.test_openai_key)
+        self.test_openai_btn.grid(row=0, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
+
+        # OpenAI Model Selection (aligned directly under key entry)
+        self.openai_model_label = ctk.CTkLabel(self.openai_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
+        self.openai_model_menu = ctk.CTkOptionMenu(self.openai_frame, values=model_fetcher.MAIN_MODELS["openai"], height=32, width=280)
+        self.openai_model_menu.set(self.config.get("openai_model", "gpt-4o"))
+        
+        # Base URL sub-setting
+        self.base_url_label = ctk.CTkLabel(self.openai_frame, text="Custom Base URL:", font=ctk.CTkFont(size=11), text_color="#888888")
+        self.base_url_label.grid(row=2, column=0, padx=(55, 10), pady=(5, 15), sticky="w")
+        self.base_url_entry = ctk.CTkEntry(self.openai_frame, height=30, placeholder_text="e.g. https://openrouter.ai/api/v1")
+        self.base_url_entry.grid(row=2, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="ew")
         self.base_url_entry.insert(0, self.config.get('openai', {}).get('base_url', ''))
 
-        self.anthropic_link_label = ctk.CTkLabel(self.api_card, text="Anthropic API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
-        self.anthropic_link_label.grid(row=5, column=0, padx=20, pady=5, sticky="e")
-        self.anthropic_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://console.anthropic.com/settings/keys"))
-        self.anthropic_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="sk-ant-...")
-        self.anthropic_entry.grid(row=5, column=1, padx=(0, 10), pady=5, sticky="ew")
+        # --- Anthropic Section ---
+        self.anthropic_frame = ctk.CTkFrame(self.api_card, fg_color=provider_bg_2, corner_radius=10)
+        self.anthropic_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=10, padx=10)
+        self.anthropic_frame.grid_columnconfigure(1, weight=1)
+
+        self.anthropic_radio = ctk.CTkRadioButton(self.anthropic_frame, text="Anthropic Engine:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="anthropic")
+        self.anthropic_radio.grid(row=0, column=0, padx=20, pady=(15, 5), sticky="w")
+        
+        self.anthropic_entry = ctk.CTkEntry(self.anthropic_frame, show="•", height=35, placeholder_text="sk-ant-...")
+        self.anthropic_entry.grid(row=0, column=1, padx=(0, 10), pady=(15, 5), sticky="ew")
         self.anthropic_entry.insert(0, self.config.get('anthropic', {}).get('api_key', ''))
-        self.test_anthropic_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_anthropic_key)
-        self.test_anthropic_btn.grid(row=5, column=2, padx=(0, 20), pady=5, sticky="e")
+        self.anthropic_entry.bind("<KeyRelease>", lambda e: self._update_model_visibility())
+        
+        self.test_anthropic_btn = ctk.CTkButton(self.anthropic_frame, text="Test Key", width=90, height=35, command=self.test_anthropic_key)
+        self.test_anthropic_btn.grid(row=0, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
 
-        self.grok_link_label = ctk.CTkLabel(self.api_card, text="Grok/xAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
-        self.grok_link_label.grid(row=6, column=0, padx=20, pady=5, sticky="e")
-        self.grok_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://console.x.ai/"))
-        self.grok_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="xai-...")
-        self.grok_entry.grid(row=6, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.anthropic_model_label = ctk.CTkLabel(self.anthropic_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
+        self.anthropic_model_menu = ctk.CTkOptionMenu(self.anthropic_frame, values=model_fetcher.MAIN_MODELS["anthropic"], height=32, width=280)
+        self.anthropic_model_menu.set(self.config.get("anthropic_model", "claude-3-5-sonnet-latest"))
+
+        # --- Grok Section ---
+        self.xai_frame = ctk.CTkFrame(self.api_card, fg_color=provider_bg_1, corner_radius=10)
+        self.xai_frame.grid(row=6, column=0, columnspan=3, sticky="ew", pady=10, padx=10)
+        self.xai_frame.grid_columnconfigure(1, weight=1)
+
+        self.grok_radio = ctk.CTkRadioButton(self.xai_frame, text="Grok / xAI Engine:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="xai")
+        self.grok_radio.grid(row=0, column=0, padx=20, pady=(15, 5), sticky="w")
+        
+        self.grok_entry = ctk.CTkEntry(self.xai_frame, show="•", height=35, placeholder_text="xai-...")
+        self.grok_entry.grid(row=0, column=1, padx=(0, 10), pady=(15, 5), sticky="ew")
         self.grok_entry.insert(0, self.config.get('xai', {}).get('api_key', ''))
-        self.test_grok_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_grok_key)
-        self.test_grok_btn.grid(row=6, column=2, padx=(0, 20), pady=5, sticky="e")
+        self.grok_entry.bind("<KeyRelease>", lambda e: self._update_model_visibility())
+        
+        self.test_grok_btn = ctk.CTkButton(self.xai_frame, text="Test Key", width=90, height=35, command=self.test_grok_key)
+        self.test_grok_btn.grid(row=0, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
 
-        self.google_link_label = ctk.CTkLabel(self.api_card, text="Google API Key (Get Free):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
-        self.google_link_label.grid(row=7, column=0, padx=20, pady=5, sticky="e")
-        self.google_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://aistudio.google.com/app/apikey"))
-        self.google_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="AIzaSy...")
-        self.google_entry.grid(row=7, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.xai_model_label = ctk.CTkLabel(self.xai_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
+        self.xai_model_menu = ctk.CTkOptionMenu(self.xai_frame, values=model_fetcher.MAIN_MODELS["xai"], height=32, width=280)
+        self.xai_model_menu.set(self.config.get("xai_model", "grok-2-latest"))
+
+        # --- Google Section ---
+        self.google_frame = ctk.CTkFrame(self.api_card, fg_color=provider_bg_2, corner_radius=10)
+        self.google_frame.grid(row=7, column=0, columnspan=3, sticky="ew", pady=10, padx=10)
+        self.google_frame.grid_columnconfigure(1, weight=1)
+
+        self.google_radio = ctk.CTkRadioButton(self.google_frame, text="Google Gemini:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="google")
+        self.google_radio.grid(row=0, column=0, padx=20, pady=(15, 5), sticky="w")
+        
+        self.google_entry = ctk.CTkEntry(self.google_frame, show="•", height=35, placeholder_text="AIzaSy...")
+        self.google_entry.grid(row=0, column=1, padx=(0, 10), pady=(15, 5), sticky="ew")
         self.google_entry.insert(0, self.config.get('google', {}).get('api_key', ''))
-        self.test_google_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_google_key)
-        self.test_google_btn.grid(row=7, column=2, padx=(0, 20), pady=5, sticky="e")
+        self.google_entry.bind("<KeyRelease>", lambda e: self._update_model_visibility())
+        
+        self.test_google_btn = ctk.CTkButton(self.google_frame, text="Test Key", width=90, height=35, command=self.test_google_key)
+        self.test_google_btn.grid(row=0, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
 
-        ctk.CTkLabel(self.api_card, text="Discord Webhook URL (Optional):", font=ctk.CTkFont(weight="bold")).grid(row=8, column=0, padx=20, pady=5, sticky="e")
+        self.google_model_label = ctk.CTkLabel(self.google_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
+        self.google_model_menu = ctk.CTkOptionMenu(self.google_frame, values=model_fetcher.MAIN_MODELS["google"], height=32, width=280)
+        self.google_model_menu.set(self.config.get("google_model", "gemini-2.5-flash"))
+
+        ctk.CTkLabel(self.api_card, text="Discord Webhook URL (Optional):", font=ctk.CTkFont(weight="bold", size=13)).grid(row=8, column=0, padx=20, pady=(15, 5), sticky="e")
         self.discord_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="https://discord.com/api/webhooks/...")
-        self.discord_entry.grid(row=8, column=1, padx=(0, 10), pady=5, sticky="ew")
+        self.discord_entry.grid(row=8, column=1, padx=(0, 10), pady=(15, 5), sticky="ew")
         self.discord_entry.insert(0, self.config.get('integrations', {}).get('discord_webhook', ''))
-        self.test_discord_btn = ctk.CTkButton(self.api_card, text="Test Alert", width=80, command=self.test_discord_webhook)
-        self.test_discord_btn.grid(row=8, column=2, padx=(0, 20), pady=5, sticky="e")
+        self.test_discord_btn = ctk.CTkButton(self.api_card, text="Test Alert", width=90, height=35, command=self.test_discord_webhook)
+        self.test_discord_btn.grid(row=8, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
 
-        ctk.CTkLabel(self.api_card, text="AI Chat Model:", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=20, pady=5, sticky="e")
-        self.model_menu = ctk.CTkComboBox(self.api_card, values=[
-            "gpt-4o", "gpt-4o-mini", 
-            "gemini-2.5-flash", "gemini-2.5-pro",
-            "claude-sonnet-4-6", "claude-haiku-4-5-20251001",
-            "grok-2-latest", "grok-2-mini",
-            "deepseek-chat", "deepseek-reasoner",
-            "openrouter/google/gemini-2.5-pro", "openrouter/meta-llama/llama-3.1-70b-instruct"
-        ], height=35)
-        self.model_menu.grid(row=9, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
-        self.model_menu.set(self.config.get('openai', {}).get('chat_model', 'gpt-4o'))
-
+        # Global sections moved below
         ctk.CTkLabel(self.api_card, text="Whisper Transcribe Model:", font=ctk.CTkFont(weight="bold")).grid(row=10, column=0, padx=20, pady=5, sticky="e")
         self.whisper_menu = ctk.CTkOptionMenu(self.api_card, values=["tiny", "base", "small", "medium", "large"], height=35)
         self.whisper_menu.grid(row=10, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
@@ -341,6 +386,9 @@ class ClipGenApp(ctk.CTk):
         self.language_menu = ctk.CTkComboBox(self.api_card, values=["Auto-Detect", "English", "Spanish", "French", "German", "Italian", "Portuguese", "Russian", "Japanese", "Korean", "Chinese"], height=35)
         self.language_menu.grid(row=11, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="ew")
         self.language_menu.set(self.config.get('openai', {}).get('whisper_language', 'English'))
+
+        # Initialize Visibility
+        self._update_model_visibility()
 
         # --- Card 2: Paths & Downloads ---
         self.paths_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
@@ -709,6 +757,48 @@ class ClipGenApp(ctk.CTk):
                 self.log_to_console(f"❌ Discord Webhook Failed: {e}")
         threading.Thread(target=run_alert, daemon=True).start()
 
+    def _update_model_visibility(self):
+        """Hides or shows provider-specific model selection based on API key presence."""
+        providers = [
+            (self.openai_entry, self.openai_model_label, self.openai_model_menu),
+            (self.anthropic_entry, self.anthropic_model_label, self.anthropic_model_menu),
+            (self.grok_entry, self.xai_model_label, self.xai_model_menu),
+            (self.google_entry, self.google_model_label, self.google_model_menu)
+        ]
+        
+        for entry, label, menu in providers:
+            if entry.get().strip():
+                # Align labels/menus under the key entry boxes
+                label.grid(row=1, column=0, padx=(55, 10), pady=(0, 15), sticky="w")
+                menu.grid(row=1, column=1, padx=(0, 10), pady=(0, 15), sticky="w")
+            else:
+                label.grid_forget()
+                menu.grid_forget()
+
+    def refresh_model_list(self):
+        """Fetches the latest models from all configured AI providers and updates individual menus."""
+        self.log_to_console("🔄 Refreshing dynamic AI model list...")
+        try:
+            # 1. OpenAI / Custom
+            openai_models = model_fetcher.fetch_openai_models(self.openai_entry.get().strip(), self.base_url_entry.get().strip())
+            if openai_models: self.openai_model_menu.configure(values=openai_models)
+            
+            # 2. Anthropic
+            anthropic_models = model_fetcher.fetch_anthropic_models(self.anthropic_entry.get().strip())
+            if anthropic_models: self.anthropic_model_menu.configure(values=anthropic_models)
+            
+            # 3. xAI
+            xai_models = model_fetcher.fetch_xai_models(self.grok_entry.get().strip())
+            if xai_models: self.xai_model_menu.configure(values=xai_models)
+            
+            # 4. Google
+            google_models = model_fetcher.fetch_google_models(self.google_entry.get().strip())
+            if google_models: self.google_model_menu.configure(values=google_models)
+            
+            self.log_to_console("✅ Successfully updated individual provider model lists.")
+        except Exception as e:
+            self.log_to_console(f"❌ Failed to refresh model list: {e}")
+
     def log_to_console(self, text, source="system"):
         tag = None
         if "❌" in text or "error" in text.lower(): tag = "error"
@@ -910,22 +1000,29 @@ class ClipGenApp(ctk.CTk):
     def save_settings(self):
         self.config['youtube']['channel_id'] = self.yt_id_entry.get()
         self.config['twitch']['username'] = self.twitch_entry.get()
+        
+        # Keys
         self.config['openai']['api_key'] = self.openai_entry.get()
         self.config['openai']['base_url'] = self.base_url_entry.get()
-        
-        if 'anthropic' not in self.config:
-            self.config['anthropic'] = {}
         self.config['anthropic']['api_key'] = self.anthropic_entry.get()
-        
-        if 'xai' not in self.config:
-            self.config['xai'] = {}
         self.config['xai']['api_key'] = self.grok_entry.get()
-        
-        if 'google' not in self.config:
-            self.config['google'] = {}
         self.config['google']['api_key'] = self.google_entry.get()
+        self.config['integrations']['discord_webhook'] = self.discord_entry.get()
         
-        self.config['openai']['chat_model'] = self.model_menu.get()
+        # AI Selections
+        self.config['active_ai_provider'] = self.active_provider_var.get()
+        self.config['openai_model'] = self.openai_model_menu.get()
+        self.config['anthropic_model'] = self.anthropic_model_menu.get()
+        self.config['xai_model'] = self.xai_model_menu.get()
+        self.config['google_model'] = self.google_model_menu.get()
+        
+        # Sync the 'legacy' chat_model field for editor.py
+        active_prov = self.config['active_ai_provider']
+        if active_prov == "openai": self.config['openai']['chat_model'] = self.config['openai_model']
+        elif active_prov == "anthropic": self.config['openai']['chat_model'] = self.config['anthropic_model']
+        elif active_prov == "xai": self.config['openai']['chat_model'] = self.config['xai_model']
+        elif active_prov == "google": self.config['openai']['chat_model'] = self.config['google_model']
+
         self.config['openai']['whisper_model'] = self.whisper_menu.get()
         self.config['openai']['whisper_language'] = self.language_menu.get()
         self.config['settings']['download_quality'] = self.quality_menu.get()
@@ -954,6 +1051,9 @@ class ClipGenApp(ctk.CTk):
 
         self.save_btn.configure(text="✅ Saved!", fg_color="#2ecc71")
         self.after(2000, lambda: self.save_btn.configure(text="Save Settings", fg_color=getattr(self, 'original_btn_color', ["#3a7ebf", "#1f538d"])))
+
+        # Trigger dynamic model list refresh in background
+        threading.Thread(target=self.refresh_model_list, daemon=True).start()
 
     # --- Gallery Logic ---
     def refresh_gallery_action(self):

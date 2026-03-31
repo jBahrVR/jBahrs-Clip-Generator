@@ -78,7 +78,7 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
         )
 
         downloaded_file_path = None
-        error_log = []  # Keep a rolling log of the output to catch hidden errors
+        error_log: list[str] = []  # Keep a rolling log of the output to catch hidden errors
 
         if process.stdout:
             for line in process.stdout: # type: ignore
@@ -126,7 +126,7 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
                 if specific_errors:
                     err_msg = "\n".join(specific_errors)
                 else:
-                    err_strings = [str(x) for x in error_log[-3:] if x is not None]
+                    err_strings = [str(error_log[i]) for i in range(max(0, len(error_log) - 3), len(error_log))]
                     err_msg = "\n".join(err_strings)
 
                 logger_callback(f"❌ Download failed! yt-dlp says:\n{err_msg}")
