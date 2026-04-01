@@ -97,7 +97,9 @@ def analyze_audio_peaks(audio_array, segments, sample_rate=16000, peak_detection
                 # A "transient" is a peak that is significantly higher than the segment average
                 # and exceeds a minimum absolute threshold (to avoid noise)
                 transients = (peaks > (seg_rms * 4.5)) & (peaks > 0.15)
-                transient_count = np.sum(transients)
+                # ⚡ Bolt: Use np.count_nonzero instead of np.sum to avoid implicit boolean-to-integer cast array allocation.
+                # Runs significantly faster in hot loops.
+                transient_count = np.count_nonzero(transients)
                 
                 # If we see > 1.5 transients per second, it's likely combat/gunfire
                 duration = seg['end'] - seg['start']
