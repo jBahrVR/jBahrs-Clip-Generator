@@ -13,3 +13,6 @@
 ## 2025-05-20 - [Redundant NumPy Array Allocation in Binary Deserialization]
 **Learning:** When loading binary audio streams via `np.frombuffer`, using chained out-of-place manipulations like `.flatten().astype(np.float32) / 32768.0` on massive datasets (e.g. 57 million samples for a 1-hour 16kHz audio file) forces multiple complete array duplications in memory. Specifically, `.flatten()` on a 1D buffer duplicates the view into a new copy, and out-of-place division creates a third copy, easily causing 500MB+ memory spikes and GC stalls.
 **Action:** For massive 1D streams, omit `.flatten()` entirely (since `frombuffer` is inherently 1D), and split the type-cast from the arithmetic, using an in-place operator (e.g., `array /= 32768.0`) to avoid instantiating massive temporary arrays and cut peak memory usage in half.
+## 2025-05-20 - [NumPy Boolean Array Counting]
+**Learning:** In NumPy, when counting `True` values in a boolean array, use `np.count_nonzero(boolean_array)` instead of `np.sum(boolean_array)`. This avoids the overhead of implicit boolean-to-integer array casting and executes significantly faster in hot loops.
+**Action:** Use `np.count_nonzero()` for counting boolean occurrences instead of `np.sum()`.

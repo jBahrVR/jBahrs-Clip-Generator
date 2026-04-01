@@ -19,7 +19,7 @@ def original_logic(chunk, peak_detection, combat_detection):
             windows = chunk[:num_windows*window_size].reshape(-1, window_size)
             peaks = np.max(np.abs(windows), axis=1)
             transients = (peaks > (seg_rms * 4.5)) & (peaks > 0.15)
-            transient_count = np.sum(transients)
+            transient_count = np.count_nonzero(transients)
             duration = 1.0 # mock
             if duration > 0 and (transient_count / duration) >= 1.5:
                 prefix_tags.append("[ACTION: COMBAT]")
