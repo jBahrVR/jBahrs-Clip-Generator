@@ -302,7 +302,7 @@ class ClipGenApp(ctk.CTk):
 
         # OpenAI Model Selection (aligned directly under key entry)
         self.openai_model_label = ctk.CTkLabel(self.openai_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
-        self.openai_model_menu = ctk.CTkOptionMenu(self.openai_frame, values=model_fetcher.MAIN_MODELS["openai"], height=32, width=280)
+        self.openai_model_menu = ctk.CTkComboBox(self.openai_frame, values=model_fetcher.MAIN_MODELS["openai"], height=32, width=280)
         self.openai_model_menu.set(self.config.get("openai_model", "gpt-4o"))
         
         # Base URL sub-setting
@@ -330,7 +330,7 @@ class ClipGenApp(ctk.CTk):
         self.test_anthropic_btn.grid(row=0, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
 
         self.anthropic_model_label = ctk.CTkLabel(self.anthropic_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
-        self.anthropic_model_menu = ctk.CTkOptionMenu(self.anthropic_frame, values=model_fetcher.MAIN_MODELS["anthropic"], height=32, width=280)
+        self.anthropic_model_menu = ctk.CTkComboBox(self.anthropic_frame, values=model_fetcher.MAIN_MODELS["anthropic"], height=32, width=280)
         self.anthropic_model_menu.set(self.config.get("anthropic_model", "claude-3-5-sonnet-latest"))
 
         # --- Grok Section ---
@@ -351,7 +351,7 @@ class ClipGenApp(ctk.CTk):
         self.test_grok_btn.grid(row=0, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
 
         self.xai_model_label = ctk.CTkLabel(self.xai_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
-        self.xai_model_menu = ctk.CTkOptionMenu(self.xai_frame, values=model_fetcher.MAIN_MODELS["xai"], height=32, width=280)
+        self.xai_model_menu = ctk.CTkComboBox(self.xai_frame, values=model_fetcher.MAIN_MODELS["xai"], height=32, width=280)
         self.xai_model_menu.set(self.config.get("xai_model", "grok-2-latest"))
 
         # --- Google Section ---
@@ -372,7 +372,7 @@ class ClipGenApp(ctk.CTk):
         self.test_google_btn.grid(row=0, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
 
         self.google_model_label = ctk.CTkLabel(self.google_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
-        self.google_model_menu = ctk.CTkOptionMenu(self.google_frame, values=model_fetcher.MAIN_MODELS["google"], height=32, width=280)
+        self.google_model_menu = ctk.CTkComboBox(self.google_frame, values=model_fetcher.MAIN_MODELS["google"], height=32, width=280)
         self.google_model_menu.set(self.config.get("google_model", "gemini-2.5-flash"))
 
         ctk.CTkLabel(self.api_card, text="Discord Webhook URL (Optional):", font=ctk.CTkFont(weight="bold", size=13)).grid(row=8, column=0, padx=20, pady=(15, 5), sticky="e")

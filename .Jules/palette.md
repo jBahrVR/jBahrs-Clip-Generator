@@ -15,3 +15,6 @@
 ## 2025-02-28 - Transient visual feedback for actions with no selection or missing dependencies
 **Learning:** For actions like opening external files (Readme) or directories (Clips), or for forms missing required inputs (Discord URL, Profile Name), users get no feedback if the action silently aborts because the dependencies or inputs are missing. This makes the UI feel unresponsive or broken.
 **Action:** Created and used a reusable helper method `_show_transient_button_state` that temporarily changes a widget's text and color to a warning state (e.g., "⚠️ Not Found", "⚠️ No URL", "⚠️ Empty") before restoring its original state using stored widget properties. This ensures users get immediate, non-intrusive feedback on why their action failed, standardizing the UX.
+## 2025-04-02 - [UI Dropdowns for AI Models]
+**Learning:** Using `CTkOptionMenu` restricts users to predefined models, requiring app updates when new AI models are released. `CTkComboBox` allows typing custom models while still offering a dropdown of common choices.
+**Action:** Use `CTkComboBox` instead of restricted option menus for dynamic configurations (like AI model selections) to permit custom user inputs for unlisted or newly released options, vastly improving future-proofing and flexibility.
