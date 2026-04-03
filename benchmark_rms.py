@@ -67,9 +67,9 @@ def analyze_audio_peaks_optimized(audio_array, segments, sample_rate=16000, peak
                 transient_count = 0
                 seg_rms = rms + 0.001
                 windows = chunk[:num_windows*window_size].reshape(-1, window_size)
-                peaks = np.max(np.abs(windows), axis=1)
-                transients = (peaks > (seg_rms * 4.5)) & (peaks > 0.15)
-                transient_count = np.sum(transients)
+                threshold = max((seg_rms * 4.5), 0.15)
+                transients = (np.max(windows, axis=1) > threshold) | (np.min(windows, axis=1) < -threshold)
+                transient_count = np.count_nonzero(transients)
                 duration = seg['end'] - seg['start']
                 if duration > 0 and (transient_count / duration) >= 1.5:
                     prefix_tags.append("[ACTION: COMBAT]")

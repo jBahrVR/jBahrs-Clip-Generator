@@ -16,3 +16,6 @@
 ## 2025-05-20 - [NumPy Boolean Array Counting]
 **Learning:** In NumPy, when counting `True` values in a boolean array, use `np.count_nonzero(boolean_array)` instead of `np.sum(boolean_array)`. This avoids the overhead of implicit boolean-to-integer array casting and executes significantly faster in hot loops.
 **Action:** Use `np.count_nonzero()` for counting boolean occurrences instead of `np.sum()`.
+## 2025-06-15 - [NumPy Peak Detection Memory Allocation]
+**Learning:** In NumPy hot loops, calling `np.abs()` on large multi-dimensional arrays (like audio windows) to calculate absolute peaks creates massive intermediate memory allocations, causing performance bottlenecks. This can be completely avoided by computing `np.max` and `np.min` directly along the axis and comparing against thresholds (e.g., `(np.max(arr, axis=1) > threshold) | (np.min(arr, axis=1) < -threshold)`).
+**Action:** Avoid `np.abs()` for peak finding in NumPy hot loops; prefer direct boolean comparisons with `np.max` and `np.min` to bypass intermediate array allocations and improve execution speed.
