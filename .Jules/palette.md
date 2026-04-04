@@ -18,3 +18,7 @@
 ## 2025-04-02 - [UI Dropdowns for AI Models]
 **Learning:** Using `CTkOptionMenu` restricts users to predefined models, requiring app updates when new AI models are released. `CTkComboBox` allows typing custom models while still offering a dropdown of common choices.
 **Action:** Use `CTkComboBox` instead of restricted option menus for dynamic configurations (like AI model selections) to permit custom user inputs for unlisted or newly released options, vastly improving future-proofing and flexibility.
+
+## 2026-04-04 - Consistent visual hover feedback for interactive widgets
+**Learning:** In desktop UI applications like CustomTkinter, users expect visual feedback when hovering over interactive elements. Standard CTk components like checkboxes and dropdowns do not show a pointer hand by default, making them feel less discoverable and consistent compared to web interfaces.
+**Action:** Always explicitly pass `cursor="hand2"` when instantiating interactive widgets such as `ctk.CTkOptionMenu`, `ctk.CTkComboBox`, `ctk.CTkCheckBox`, `ctk.CTkRadioButton`, and `ctk.CTkSwitch` to provide consistent and standard hover feedback.
