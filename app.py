@@ -904,7 +904,8 @@ class ClipGenApp(ctk.CTk):
                     startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
 
             cmd = [watcher.YTDLP_PATH, "--get-id", "--", url]
-            result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
+            # 🛡️ Sentinel: Add timeout to prevent indefinite network hang (DoS risk)
+            result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo, timeout=30)
             return result.stdout.strip()
         except Exception as e:
             self.log_to_console(f"❌ yt-dlp error: {e}") 

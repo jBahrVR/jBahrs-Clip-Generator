@@ -178,7 +178,8 @@ def main(logger_callback=None):
             startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
+        # 🛡️ Sentinel: Add timeout to prevent indefinite network hang (DoS risk)
+        result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo, timeout=30)
         latest_id = result.stdout.strip().partition('\n')[0] if result.stdout.strip() else None
         
         # 👈 THE FIX: Strip the stray 'v' from Twitch IDs so the URL doesn't 404
