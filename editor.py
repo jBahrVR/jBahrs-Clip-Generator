@@ -125,14 +125,18 @@ def extract_audio_hidden(file_path, sr=16000):
     
     startupinfo = _get_startupinfo()
 
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=startupinfo)
-    stdout, stderr = process.communicate()
-    if process.returncode != 0:
-        raise RuntimeError(f"FFmpeg audio extraction failed: {stderr.decode()}") # type: ignore
+    # 🛡️ Sentinel: Use subprocess.run with timeout to prevent FFmpeg hang
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=startupinfo, timeout=600)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("FFmpeg audio extraction timed out after 600 seconds.")
+
+    if result.returncode != 0:
+        raise RuntimeError(f"FFmpeg audio extraction failed: {result.stderr.decode()}") # type: ignore
         
     # ⚡ Bolt: Prevent massive intermediate array allocations by dropping redundant .flatten()
     # (since frombuffer is already 1D) and using in-place division. Reduces peak memory by 50%.
-    audio_array = np.frombuffer(stdout, np.int16).astype(np.float32)
+    audio_array = np.frombuffer(result.stdout, np.int16).astype(np.float32)
     audio_array /= 32768.0
     return audio_array
 
@@ -184,7 +188,8 @@ def _generate_horizontal_clip(file_path, output_file, start_time, end_time, vide
     if logger:
         logger(f"✂️ Cutting horizontal clip ({start_time}s - {end_time}s)...")
         
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+    # 🛡️ Sentinel: Add timeout to prevent FFmpeg hang
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True, timeout=600)
 
 def _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vertical_mode, config, startupinfo, logger):
     if logger: logger(f"📱 Generating Vertical Shorts format ({vertical_mode})...")
@@ -240,7 +245,8 @@ def _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_
         vert_cmd.extend(audio_codec_flags)
         vert_cmd.append(vert_output)
 
-    subprocess.run(vert_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+    # 🛡️ Sentinel: Add timeout to prevent FFmpeg hang
+    subprocess.run(vert_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True, timeout=600)
 
 def _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, startupinfo, logger):
     if logger: logger("📸 Generating clip thumbnail...")
@@ -249,7 +255,8 @@ def _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, star
         "ffmpeg", "-y", "-ss", str(mid_point), "-i", target_for_thumb,
         "-vframes", "1", "-vf", "scale=-1:200", "-q:v", "5", thumb_file
     ]
-    subprocess.run(thumb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+    # 🛡️ Sentinel: Add timeout to prevent FFmpeg hang
+    subprocess.run(thumb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True, timeout=60)
 
 
 def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, vertical_export, vertical_mode, config, startupinfo, logger, is_cancelled):

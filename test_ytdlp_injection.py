@@ -57,20 +57,24 @@ class TestYTDLPInjection(unittest.TestCase):
             }
         }
 
-        # Call the target method
-        malicious_url = "-v"
-        watcher.download_with_subprocess(malicious_url, "dummy_id")
+        # Mock the os.makedirs to prevent directory creation errors during tests
+        with unittest.mock.patch('os.makedirs'):
+            with unittest.mock.patch('os.path.exists', return_value=True):
 
-        # Get the arguments passed to subprocess.Popen
-        called_cmd = mock_subprocess_popen.call_args[0][0]
+                # Call the target method
+                malicious_url = "-v"
+                watcher.download_with_subprocess(malicious_url, "dummy_id")
 
-        # Assert that "--" is present immediately before the malicious URL
-        self.assertIn("--", called_cmd, "The '--' argument separator is missing.")
+                # Get the arguments passed to subprocess.Popen
+                called_cmd = mock_subprocess_popen.call_args[0][0]
 
-        malicious_idx = called_cmd.index(malicious_url)
-        separator_idx = called_cmd.index("--")
+                # Assert that "--" is present immediately before the malicious URL
+                self.assertIn("--", called_cmd, "The '--' argument separator is missing.")
 
-        self.assertEqual(separator_idx, malicious_idx - 1, "'--' must immediately precede the URL to prevent argument injection.")
+                malicious_idx = called_cmd.index(malicious_url)
+                separator_idx = called_cmd.index("--")
+
+                self.assertEqual(separator_idx, malicious_idx - 1, "'--' must immediately precede the URL to prevent argument injection.")
 
     @unittest.mock.patch('subprocess.run')
     @unittest.mock.patch('config_manager.load_config')
