@@ -168,35 +168,35 @@ class ClipGenApp(ctk.CTk):
         self.auto_controls_card.grid(row=1, column=0, padx=30, pady=10, sticky="ew")
         
         ctk.CTkLabel(self.auto_controls_card, text="Platform:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(20,10))
-        self.platform_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["YouTube", "Twitch"], width=110)
+        self.platform_menu = ctk.CTkOptionMenu(self.auto_controls_card, cursor="hand2", values=["YouTube", "Twitch"], width=110)
         self.platform_menu.grid(row=0, column=1, padx=5, pady=(20,10))
         self.platform_menu.set(self.config.get("auto_scheduler", {}).get("platform", "YouTube"))
 
         ctk.CTkLabel(self.auto_controls_card, text="Type:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=2, padx=10, pady=(20,10))
-        self.type_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["Livestreams Only", "Any Upload"], width=130)
+        self.type_menu = ctk.CTkOptionMenu(self.auto_controls_card, cursor="hand2", values=["Livestreams Only", "Any Upload"], width=130)
         self.type_menu.grid(row=0, column=3, padx=5, pady=(20,10))
         self.type_menu.set(self.config.get("auto_scheduler", {}).get("video_type", "Livestreams Only"))
 
         ctk.CTkLabel(self.auto_controls_card, text="Orientation:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=4, padx=10, pady=(20,10))
-        self.target_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["Vertical Only", "Horizontal Only", "Any"], width=130)
+        self.target_menu = ctk.CTkOptionMenu(self.auto_controls_card, cursor="hand2", values=["Vertical Only", "Horizontal Only", "Any"], width=130)
         self.target_menu.grid(row=0, column=5, padx=5, pady=(20,10))
         self.target_menu.set(self.config.get("auto_scheduler", {}).get("target_orientation", "Horizontal Only"))
 
         ctk.CTkLabel(self.auto_controls_card, text="Max Age:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=10, pady=(10,10))
-        self.lookback_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["1 Day", "3 Days", "7 Days", "14 Days", "30 Days", "All Time"], width=110)
+        self.lookback_menu = ctk.CTkOptionMenu(self.auto_controls_card, cursor="hand2", values=["1 Day", "3 Days", "7 Days", "14 Days", "30 Days", "All Time"], width=110)
         self.lookback_menu.grid(row=1, column=1, padx=5, pady=(10,10))
         self.lookback_menu.set(self.config.get("auto_scheduler", {}).get("lookback_days", "7 Days"))
 
         ctk.CTkLabel(self.auto_controls_card, text="Interval:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=2, padx=10, pady=(10,10))
-        self.interval_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["Every 1 Hour", "Every 4 Hours", "Every 12 Hours", "Every 24 Hours"], width=130)
+        self.interval_menu = ctk.CTkOptionMenu(self.auto_controls_card, cursor="hand2", values=["Every 1 Hour", "Every 4 Hours", "Every 12 Hours", "Every 24 Hours"], width=130)
         self.interval_menu.grid(row=1, column=3, padx=5, pady=(10,10))
         self.interval_menu.set(self.config.get("auto_scheduler", {}).get("check_interval", "Every 4 Hours"))
 
         ctk.CTkLabel(self.auto_controls_card, text="Auto-Prompt:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=4, padx=10, pady=(10,10))
-        self.auto_prompt_menu = ctk.CTkOptionMenu(self.auto_controls_card, width=130)
+        self.auto_prompt_menu = ctk.CTkOptionMenu(self.auto_controls_card, cursor="hand2", width=130)
         self.auto_prompt_menu.grid(row=1, column=5, padx=5, pady=(10,10))
 
-        self.auto_switch = ctk.CTkSwitch(self.auto_controls_card, text="Enable Watcher", font=ctk.CTkFont(weight="bold"), command=self.toggle_auto)
+        self.auto_switch = ctk.CTkSwitch(self.auto_controls_card, cursor="hand2", text="Enable Watcher", font=ctk.CTkFont(weight="bold"), command=self.toggle_auto)
         self.auto_switch.grid(row=2, column=4, columnspan=2, padx=20, pady=(10,20), sticky="e")
 
         self.auto_progress = ctk.CTkProgressBar(self.auto_frame, mode="indeterminate", height=10)
@@ -232,7 +232,7 @@ class ClipGenApp(ctk.CTk):
         self.prompt_select_card.grid(row=1, column=0, padx=30, pady=10, sticky="ew")
         
         ctk.CTkLabel(self.prompt_select_card, text="Active Manual Profile:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=20, pady=20)
-        self.profile_dropdown = ctk.CTkOptionMenu(self.prompt_select_card, command=self.on_profile_change)
+        self.profile_dropdown = ctk.CTkOptionMenu(self.prompt_select_card, cursor="hand2", command=self.on_profile_change)
         self.profile_dropdown.pack(side="left", padx=10)
 
         self.new_profile_btn = ctk.CTkButton(self.prompt_select_card, cursor="hand2", text="➕ New", width=60, fg_color="#27ae60", hover_color="#1e8449", command=self.create_new_profile)
@@ -289,7 +289,7 @@ class ClipGenApp(ctk.CTk):
         self.openai_frame.grid_columnconfigure(0, minsize=220)
         self.openai_frame.grid_columnconfigure(1, weight=1)
 
-        self.openai_radio = ctk.CTkRadioButton(self.openai_frame, text="OpenAI / Custom API:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="openai")
+        self.openai_radio = ctk.CTkRadioButton(self.openai_frame, cursor="hand2", text="OpenAI / Custom API:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="openai")
         self.openai_radio.grid(row=0, column=0, padx=20, pady=(15, 5), sticky="w")
         
         self.openai_entry = ctk.CTkEntry(self.openai_frame, show="•", height=35, placeholder_text="sk-proj-...")
@@ -302,7 +302,7 @@ class ClipGenApp(ctk.CTk):
 
         # OpenAI Model Selection (aligned directly under key entry)
         self.openai_model_label = ctk.CTkLabel(self.openai_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
-        self.openai_model_menu = ctk.CTkComboBox(self.openai_frame, values=model_fetcher.MAIN_MODELS["openai"], height=32, width=280)
+        self.openai_model_menu = ctk.CTkComboBox(self.openai_frame, cursor="hand2", values=model_fetcher.MAIN_MODELS["openai"], height=32, width=280)
         self.openai_model_menu.set(self.config.get("openai_model", "gpt-4o"))
         
         # Base URL sub-setting
@@ -318,7 +318,7 @@ class ClipGenApp(ctk.CTk):
         self.anthropic_frame.grid_columnconfigure(0, minsize=220)
         self.anthropic_frame.grid_columnconfigure(1, weight=1)
 
-        self.anthropic_radio = ctk.CTkRadioButton(self.anthropic_frame, text="Anthropic Engine:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="anthropic")
+        self.anthropic_radio = ctk.CTkRadioButton(self.anthropic_frame, cursor="hand2", text="Anthropic Engine:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="anthropic")
         self.anthropic_radio.grid(row=0, column=0, padx=20, pady=(15, 5), sticky="w")
         
         self.anthropic_entry = ctk.CTkEntry(self.anthropic_frame, show="•", height=35, placeholder_text="sk-ant-...")
@@ -330,7 +330,7 @@ class ClipGenApp(ctk.CTk):
         self.test_anthropic_btn.grid(row=0, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
 
         self.anthropic_model_label = ctk.CTkLabel(self.anthropic_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
-        self.anthropic_model_menu = ctk.CTkComboBox(self.anthropic_frame, values=model_fetcher.MAIN_MODELS["anthropic"], height=32, width=280)
+        self.anthropic_model_menu = ctk.CTkComboBox(self.anthropic_frame, cursor="hand2", values=model_fetcher.MAIN_MODELS["anthropic"], height=32, width=280)
         self.anthropic_model_menu.set(self.config.get("anthropic_model", "claude-3-5-sonnet-latest"))
 
         # --- Grok Section ---
@@ -339,7 +339,7 @@ class ClipGenApp(ctk.CTk):
         self.xai_frame.grid_columnconfigure(0, minsize=220)
         self.xai_frame.grid_columnconfigure(1, weight=1)
 
-        self.grok_radio = ctk.CTkRadioButton(self.xai_frame, text="Grok / xAI Engine:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="xai")
+        self.grok_radio = ctk.CTkRadioButton(self.xai_frame, cursor="hand2", text="Grok / xAI Engine:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="xai")
         self.grok_radio.grid(row=0, column=0, padx=20, pady=(15, 5), sticky="w")
         
         self.grok_entry = ctk.CTkEntry(self.xai_frame, show="•", height=35, placeholder_text="xai-...")
@@ -351,7 +351,7 @@ class ClipGenApp(ctk.CTk):
         self.test_grok_btn.grid(row=0, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
 
         self.xai_model_label = ctk.CTkLabel(self.xai_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
-        self.xai_model_menu = ctk.CTkComboBox(self.xai_frame, values=model_fetcher.MAIN_MODELS["xai"], height=32, width=280)
+        self.xai_model_menu = ctk.CTkComboBox(self.xai_frame, cursor="hand2", values=model_fetcher.MAIN_MODELS["xai"], height=32, width=280)
         self.xai_model_menu.set(self.config.get("xai_model", "grok-2-latest"))
 
         # --- Google Section ---
@@ -360,7 +360,7 @@ class ClipGenApp(ctk.CTk):
         self.google_frame.grid_columnconfigure(0, minsize=220)
         self.google_frame.grid_columnconfigure(1, weight=1)
 
-        self.google_radio = ctk.CTkRadioButton(self.google_frame, text="Google Gemini:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="google")
+        self.google_radio = ctk.CTkRadioButton(self.google_frame, cursor="hand2", text="Google Gemini:", font=ctk.CTkFont(weight="bold", size=13), variable=self.active_provider_var, value="google")
         self.google_radio.grid(row=0, column=0, padx=20, pady=(15, 5), sticky="w")
         
         self.google_entry = ctk.CTkEntry(self.google_frame, show="•", height=35, placeholder_text="AIzaSy...")
@@ -372,7 +372,7 @@ class ClipGenApp(ctk.CTk):
         self.test_google_btn.grid(row=0, column=2, padx=(0, 20), pady=(15, 5), sticky="e")
 
         self.google_model_label = ctk.CTkLabel(self.google_frame, text="AI Cloud Model:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#bbbbbb")
-        self.google_model_menu = ctk.CTkComboBox(self.google_frame, values=model_fetcher.MAIN_MODELS["google"], height=32, width=280)
+        self.google_model_menu = ctk.CTkComboBox(self.google_frame, cursor="hand2", values=model_fetcher.MAIN_MODELS["google"], height=32, width=280)
         self.google_model_menu.set(self.config.get("google_model", "gemini-2.5-flash"))
 
         ctk.CTkLabel(self.api_card, text="Discord Webhook URL (Optional):", font=ctk.CTkFont(weight="bold", size=13)).grid(row=8, column=0, padx=20, pady=(15, 5), sticky="e")
@@ -384,12 +384,12 @@ class ClipGenApp(ctk.CTk):
 
         # Global sections moved below
         ctk.CTkLabel(self.api_card, text="Whisper Transcribe Model:", font=ctk.CTkFont(weight="bold")).grid(row=10, column=0, padx=20, pady=5, sticky="e")
-        self.whisper_menu = ctk.CTkOptionMenu(self.api_card, values=["tiny", "base", "small", "medium", "large"], height=35)
+        self.whisper_menu = ctk.CTkOptionMenu(self.api_card, cursor="hand2", values=["tiny", "base", "small", "medium", "large"], height=35)
         self.whisper_menu.grid(row=10, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
         self.whisper_menu.set(self.config.get('openai', {}).get('whisper_model', 'base'))
 
         ctk.CTkLabel(self.api_card, text="VOD Language:", font=ctk.CTkFont(weight="bold")).grid(row=11, column=0, padx=20, pady=(5, 15), sticky="e")
-        self.language_menu = ctk.CTkComboBox(self.api_card, values=["Auto-Detect", "English", "Spanish", "French", "German", "Italian", "Portuguese", "Russian", "Japanese", "Korean", "Chinese"], height=35)
+        self.language_menu = ctk.CTkComboBox(self.api_card, cursor="hand2", values=["Auto-Detect", "English", "Spanish", "French", "German", "Italian", "Portuguese", "Russian", "Japanese", "Korean", "Chinese"], height=35)
         self.language_menu.grid(row=11, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="ew")
         self.language_menu.set(self.config.get('openai', {}).get('whisper_language', 'English'))
 
@@ -405,7 +405,7 @@ class ClipGenApp(ctk.CTk):
         ctk.CTkLabel(self.paths_card, text="Paths & Downloads", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
 
         ctk.CTkLabel(self.paths_card, text="VOD Download Size:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=5, sticky="e")
-        self.quality_menu = ctk.CTkOptionMenu(self.paths_card, values=["Best", "1080p", "720p"], height=35)
+        self.quality_menu = ctk.CTkOptionMenu(self.paths_card, cursor="hand2", values=["Best", "1080p", "720p"], height=35)
         self.quality_menu.grid(row=1, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
         self.quality_menu.set(self.config.get('settings', {}).get('download_quality', 'Best'))
 
@@ -424,7 +424,7 @@ class ClipGenApp(ctk.CTk):
         self.clip_browse_btn.grid(row=3, column=2, padx=(0, 20), pady=5, sticky="e")
 
         ctk.CTkLabel(self.paths_card, text="Auth Browser (Cookies):", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=(5, 15), sticky="e")
-        self.browser_menu = ctk.CTkOptionMenu(self.paths_card, values=["None", "chrome", "edge", "firefox", "opera", "brave", "vivaldi"], height=35)
+        self.browser_menu = ctk.CTkOptionMenu(self.paths_card, cursor="hand2", values=["None", "chrome", "edge", "firefox", "opera", "brave", "vivaldi"], height=35)
         self.browser_menu.grid(row=4, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
         self.browser_menu.set(self.config.get('settings', {}).get('auth_browser', 'None'))
 
@@ -436,22 +436,22 @@ class ClipGenApp(ctk.CTk):
         
         ctk.CTkLabel(self.proc_card, text="Video Processing Rules", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
 
-        self.hardware_switch = ctk.CTkSwitch(self.proc_card, text="GPU Hardware Encoding (NVENC/AMF)", font=ctk.CTkFont(weight="bold"))
+        self.hardware_switch = ctk.CTkSwitch(self.proc_card, cursor="hand2", text="GPU Hardware Encoding (NVENC/AMF)", font=ctk.CTkFont(weight="bold"))
         self.hardware_switch.grid(row=1, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
-        self.downmix_switch = ctk.CTkSwitch(self.proc_card, text="Downmix Multi-Track Audio (OBS)", font=ctk.CTkFont(weight="bold"))
+        self.downmix_switch = ctk.CTkSwitch(self.proc_card, cursor="hand2", text="Downmix Multi-Track Audio (OBS)", font=ctk.CTkFont(weight="bold"))
         self.downmix_switch.grid(row=2, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
-        self.audio_peak_switch = ctk.CTkSwitch(self.proc_card, text="Measure Audio Peak Levels", font=ctk.CTkFont(weight="bold"))
+        self.audio_peak_switch = ctk.CTkSwitch(self.proc_card, cursor="hand2", text="Measure Audio Peak Levels", font=ctk.CTkFont(weight="bold"))
         self.audio_peak_switch.grid(row=3, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
-        self.combat_switch = ctk.CTkSwitch(self.proc_card, text="AI Combat Detection (Gunfights/Action)", font=ctk.CTkFont(weight="bold"))
+        self.combat_switch = ctk.CTkSwitch(self.proc_card, cursor="hand2", text="AI Combat Detection (Gunfights/Action)", font=ctk.CTkFont(weight="bold"))
         self.combat_switch.grid(row=4, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
-        self.stabilize_switch = ctk.CTkSwitch(self.proc_card, text="Apply VR Anti-Shake Filter (Experimental/Slow)", font=ctk.CTkFont(weight="bold"))
+        self.stabilize_switch = ctk.CTkSwitch(self.proc_card, cursor="hand2", text="Apply VR Anti-Shake Filter (Experimental/Slow)", font=ctk.CTkFont(weight="bold"))
         self.stabilize_switch.grid(row=5, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
 
-        self.vertical_switch = ctk.CTkSwitch(self.proc_card, text="Generate Vertical Shorts (9:16)", font=ctk.CTkFont(weight="bold"))
+        self.vertical_switch = ctk.CTkSwitch(self.proc_card, cursor="hand2", text="Generate Vertical Shorts (9:16)", font=ctk.CTkFont(weight="bold"))
         self.vertical_switch.grid(row=6, column=0, padx=20, pady=(15, 5), sticky="w")
         
         self.vertical_mode_menu = ctk.CTkOptionMenu(
@@ -537,7 +537,7 @@ class ClipGenApp(ctk.CTk):
         self.sort_label = ctk.CTkLabel(self.sort_frame, text="Sort by:", font=ctk.CTkFont(size=12))
         self.sort_label.pack(side="left", padx=(0, 5))
         
-        self.sort_menu = ctk.CTkOptionMenu(self.sort_frame, values=["Date (Newest)", "Date (Oldest)", "Virality (High)", "Virality (Low)"], 
+        self.sort_menu = ctk.CTkOptionMenu(self.sort_frame, cursor="hand2", values=["Date (Newest)", "Date (Oldest)", "Virality (High)", "Virality (Low)"],
                                            command=lambda _: self.populate_gallery())
         self.sort_menu.pack(side="left", fill="x", expand=True)
         self.sort_menu.set("Date (Newest)")
@@ -547,12 +547,12 @@ class ClipGenApp(ctk.CTk):
         self.filter_frame.grid(row=2, column=0, padx=(30, 10), pady=(0, 5), sticky="ew")
         
         ctk.CTkLabel(self.filter_frame, text="Type:", font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 5))
-        self.type_filter_menu = ctk.CTkOptionMenu(self.filter_frame, values=["All", "Horizontal", "Vertical"], width=100, command=lambda _: self.populate_gallery())
+        self.type_filter_menu = ctk.CTkOptionMenu(self.filter_frame, cursor="hand2", values=["All", "Horizontal", "Vertical"], width=100, command=lambda _: self.populate_gallery())
         self.type_filter_menu.pack(side="left", padx=(0, 10))
         self.type_filter_menu.set("All")
         
         ctk.CTkLabel(self.filter_frame, text="Min Score:", font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 5))
-        self.score_filter_menu = ctk.CTkOptionMenu(self.filter_frame, values=["All", "3+", "5+", "7+", "8+", "9+"], width=80, command=lambda _: self.populate_gallery())
+        self.score_filter_menu = ctk.CTkOptionMenu(self.filter_frame, cursor="hand2", values=["All", "3+", "5+", "7+", "8+", "9+"], width=80, command=lambda _: self.populate_gallery())
         self.score_filter_menu.pack(side="left")
         self.score_filter_menu.set("All")
 
@@ -563,7 +563,7 @@ class ClipGenApp(ctk.CTk):
         self.gallery_actions_frame.grid(row=4, column=0, padx=(30, 10), pady=(0, 10), sticky="ew")
 
         self.select_all_var = ctk.BooleanVar(value=False)
-        self.select_all_checkbox = ctk.CTkCheckBox(self.gallery_actions_frame, text="Select All", variable=self.select_all_var, command=self.toggle_select_all)
+        self.select_all_checkbox = ctk.CTkCheckBox(self.gallery_actions_frame, cursor="hand2", text="Select All", variable=self.select_all_var, command=self.toggle_select_all)
         self.select_all_checkbox.pack(side="left", padx=(0, 10))
 
         self.refresh_gallery_btn = ctk.CTkButton(self.gallery_actions_frame, cursor="hand2", text="🔄 Refresh List", command=self.refresh_gallery_action)
@@ -1172,7 +1172,7 @@ class ClipGenApp(ctk.CTk):
             row_frame.pack(fill="x", pady=2, padx=5)
             
             self.marked_for_deletion[file] = ctk.BooleanVar(value=False)
-            checkbox = ctk.CTkCheckBox(row_frame, text="", variable=self.marked_for_deletion[file], width=20)
+            checkbox = ctk.CTkCheckBox(row_frame, cursor="hand2", text="", variable=self.marked_for_deletion[file], width=20)
             checkbox.pack(side="left", padx=(0, 5))
 
             btn = ctk.CTkButton(row_frame, cursor="hand2", text=file, fg_color="#2b2b2b", hover_color="#3b3b3b", anchor="w",
