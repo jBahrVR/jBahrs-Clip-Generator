@@ -92,11 +92,17 @@ def analyze_audio_peaks(audio_array, segments, sample_rate=16000, peak_detection
                 
                 # Reshape into windows and find peak per window
                 windows = chunk[:num_windows*window_size].reshape(-1, window_size)
-                peaks = np.max(np.abs(windows), axis=1)
+
+                # ⚡ Bolt: Avoid calling np.abs() on massive multi-dimensional arrays, which causes intermediate memory allocation.
+                # Find max and min directly, then compare against the highest threshold limit.
+                max_peaks = np.max(windows, axis=1)
+                min_peaks = np.min(windows, axis=1)
                 
                 # A "transient" is a peak that is significantly higher than the segment average
                 # and exceeds a minimum absolute threshold (to avoid noise)
-                transients = (peaks > (seg_rms * 4.5)) & (peaks > 0.15)
+                threshold = max(seg_rms * 4.5, 0.15)
+                transients = (max_peaks > threshold) | (min_peaks < -threshold)
+
                 # ⚡ Bolt: Use np.count_nonzero instead of np.sum to avoid implicit boolean-to-integer cast array allocation.
                 # Runs significantly faster in hot loops.
                 transient_count = np.count_nonzero(transients)
