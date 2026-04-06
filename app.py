@@ -1101,7 +1101,11 @@ class ClipGenApp(ctk.CTk):
         # Gather file data for sorting
         clip_data = []
         with os.scandir(clips_dir) as entries:
-            for entry in entries:
+            # ⚡ Bolt: Pre-compute available JSON metadata files to avoid costly disk I/O in the loop
+            entries_list = list(entries)
+            json_files = {e.name for e in entries_list if e.name.endswith(".json") and e.is_file()}
+
+            for entry in entries_list:
                 if entry.name.endswith(".mp4") and entry.is_file():
                     f = entry.name
                     ctime = entry.stat().st_ctime
@@ -1123,8 +1127,9 @@ class ClipGenApp(ctk.CTk):
 
                         # Fallback: Read from JSON file if filename does not contain score
                         if score == 0:
-                            json_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json"))
-                            if os.path.exists(json_path):
+                            json_filename = f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json")
+                            if json_filename in json_files:
+                                json_path = os.path.join(clips_dir, json_filename)
                                 try:
                                     with open(json_path, 'r', encoding='utf-8') as jf:
                                         jdata = json.load(jf)
