@@ -872,7 +872,10 @@ class ClipGenApp(ctk.CTk):
     def open_logs(self):
         log_path = os.path.join(config_manager.get_app_data_path(), "app_crash_log.txt")
         if os.path.exists(log_path):
-            subprocess.run(['explorer', '/select,', log_path])
+            try:
+                subprocess.run(['explorer', '/select,', log_path], timeout=10)
+            except subprocess.TimeoutExpired:
+                self.log_to_console("❌ Failed to open log folder: Timeout")
         else:
             app_data_path = config_manager.get_app_data_path()
             if hasattr(os, 'startfile'):
@@ -904,7 +907,7 @@ class ClipGenApp(ctk.CTk):
                     startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
 
             cmd = [watcher.YTDLP_PATH, "--get-id", "--", url]
-            result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
+            result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo, timeout=30)
             return result.stdout.strip()
         except Exception as e:
             self.log_to_console(f"❌ yt-dlp error: {e}") 
@@ -1269,7 +1272,12 @@ class ClipGenApp(ctk.CTk):
 
         if hasattr(os, 'startfile'):
             self.play_clip_btn.configure(state="normal", command=lambda: os.startfile(mp4_path)) # type: ignore
-            self.open_folder_btn.configure(state="normal", command=lambda: subprocess.run(['explorer', '/select,', os.path.abspath(mp4_path)]))
+            def open_folder():
+                try:
+                    subprocess.run(['explorer', '/select,', os.path.abspath(mp4_path)], timeout=10)
+                except subprocess.TimeoutExpired:
+                    self.log_to_console("❌ Failed to open folder: Timeout")
+            self.open_folder_btn.configure(state="normal", command=open_folder)
 
     # --- Processing Engine ---
     def browse_local_file(self):
