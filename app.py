@@ -41,6 +41,9 @@ class ClipGenApp(ctk.CTk):
         self.config = config_manager.load_config()
         self.is_auto_running = False
 
+        # Cache for clip metadata to avoid disk I/O on UI refreshes
+        self.metadata_cache = {}
+
         self._init_logging()
 
         self.grid_rowconfigure(0, weight=1)
@@ -1100,43 +1103,59 @@ class ClipGenApp(ctk.CTk):
         
         # Gather file data for sorting
         clip_data = []
+
+        # Optimization: Pre-scan directory to separate JSON files (and their mtimes) and MP4s.
+        json_files = {}
+        mp4_entries = []
+
         with os.scandir(clips_dir) as entries:
             for entry in entries:
-                if entry.name.endswith(".mp4") and entry.is_file():
-                    f = entry.name
-                    ctime = entry.stat().st_ctime
+                if entry.is_file():
+                    if entry.name.endswith(".json"):
+                        json_files[entry.name] = entry.stat().st_mtime
+                    elif entry.name.endswith(".mp4"):
+                        mp4_entries.append((entry.name, entry.stat().st_ctime))
 
-                    score = 0
-                    # Try to get virality score from JSON if sorting by it
-                    if "Virality" in sort_mode:
-                        # Optimization: Extract score from filename using partition to avoid slow disk I/O
-                        if "_score" in f:
+        for f, ctime in mp4_entries:
+            score = 0
+            # Try to get virality score from JSON if sorting by it
+            if "Virality" in sort_mode:
+                # Optimization: Extract score from filename using partition to avoid slow disk I/O
+                if "_score" in f:
+                    try:
+                        score_part = f.rpartition("_score")[2]
+                        if "_vertical" in score_part:
+                            score_part = score_part.partition("_vertical")[0]
+                        else:
+                            score_part = score_part.partition(".mp4")[0]
+                        score = float(score_part)
+                    except ValueError:
+                        pass
+
+                # Fallback: Read from JSON file if filename does not contain score
+                if score == 0:
+                    expected_json_name = f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json")
+                    if expected_json_name in json_files:
+                        json_mtime = json_files[expected_json_name]
+                        json_path = os.path.join(clips_dir, expected_json_name)
+
+                        # Optimization: Check memory cache to avoid redundant JSON file reads
+                        if json_path in self.metadata_cache and self.metadata_cache[json_path][0] == json_mtime:
+                            score = self.metadata_cache[json_path][1]
+                        else:
                             try:
-                                score_part = f.rpartition("_score")[2]
-                                if "_vertical" in score_part:
-                                    score_part = score_part.partition("_vertical")[0]
-                                else:
-                                    score_part = score_part.partition(".mp4")[0]
-                                score = float(score_part)
-                            except ValueError:
-                                pass
+                                with open(json_path, 'r', encoding='utf-8') as jf:
+                                    jdata = json.load(jf)
+                                    score = float(jdata.get("virality_score", 0))
+                                    self.metadata_cache[json_path] = (json_mtime, score)
+                            except Exception as e:
+                                print(f"Error reading virality score from {json_path}: {e}")
 
-                        # Fallback: Read from JSON file if filename does not contain score
-                        if score == 0:
-                            json_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json"))
-                            if os.path.exists(json_path):
-                                try:
-                                    with open(json_path, 'r', encoding='utf-8') as jf:
-                                        jdata = json.load(jf)
-                                        score = float(jdata.get("virality_score", 0))
-                                except Exception as e:
-                                    print(f"Error reading virality score from {json_path}: {e}")
-
-                    clip_data.append({
-                        "filename": f,
-                        "ctime": ctime,
-                        "score": score
-                    })
+            clip_data.append({
+                "filename": f,
+                "ctime": ctime,
+                "score": score
+            })
 
         # Apply sorting
         if sort_mode == "Date (Newest)":
