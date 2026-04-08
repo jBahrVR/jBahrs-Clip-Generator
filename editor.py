@@ -184,7 +184,8 @@ def _generate_horizontal_clip(file_path, output_file, start_time, end_time, vide
     if logger:
         logger(f"✂️ Cutting horizontal clip ({start_time}s - {end_time}s)...")
         
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+    # 🛡️ Sentinel: Add timeout to prevent indefinite application hangs (DoS) on ffmpeg stalls
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True, timeout=600)
 
 def _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vertical_mode, config, startupinfo, logger):
     if logger: logger(f"📱 Generating Vertical Shorts format ({vertical_mode})...")
@@ -240,7 +241,8 @@ def _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_
         vert_cmd.extend(audio_codec_flags)
         vert_cmd.append(vert_output)
 
-    subprocess.run(vert_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+    # 🛡️ Sentinel: Add timeout to prevent indefinite application hangs (DoS) on ffmpeg stalls
+    subprocess.run(vert_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True, timeout=600)
 
 def _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, startupinfo, logger):
     if logger: logger("📸 Generating clip thumbnail...")
@@ -249,7 +251,8 @@ def _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, star
         "ffmpeg", "-y", "-ss", str(mid_point), "-i", target_for_thumb,
         "-vframes", "1", "-vf", "scale=-1:200", "-q:v", "5", thumb_file
     ]
-    subprocess.run(thumb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+    # 🛡️ Sentinel: Add timeout to prevent indefinite application hangs (DoS) on ffmpeg stalls
+    subprocess.run(thumb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True, timeout=600)
 
 
 def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, vertical_export, vertical_mode, config, startupinfo, logger, is_cancelled):
