@@ -41,6 +41,9 @@ class ClipGenApp(ctk.CTk):
         self.config = config_manager.load_config()
         self.is_auto_running = False
 
+        # ⚡ Bolt: Cache metadata JSON reads to prevent UI lag on refresh
+        self.metadata_cache = {}
+
         self._init_logging()
 
         self.grid_rowconfigure(0, weight=1)
@@ -1124,11 +1127,14 @@ class ClipGenApp(ctk.CTk):
                         # Fallback: Read from JSON file if filename does not contain score
                         if score == 0:
                             json_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json"))
-                            if os.path.exists(json_path):
+                            if json_path in self.metadata_cache and self.metadata_cache[json_path][0] == ctime:
+                                score = self.metadata_cache[json_path][1]
+                            elif os.path.exists(json_path):
                                 try:
                                     with open(json_path, 'r', encoding='utf-8') as jf:
                                         jdata = json.load(jf)
                                         score = float(jdata.get("virality_score", 0))
+                                        self.metadata_cache[json_path] = (ctime, score)
                                 except Exception as e:
                                     print(f"Error reading virality score from {json_path}: {e}")
 
