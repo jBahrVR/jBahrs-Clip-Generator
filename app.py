@@ -930,8 +930,16 @@ values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Faceca
         
         # Gather file data for sorting
         clip_data = []
+        # ⚡ Bolt: Initialize memory cache for metadata to prevent slow disk I/O on UI refresh
+        if not hasattr(self, 'metadata_cache'):
+            self.metadata_cache = {}
+
         with os.scandir(clips_dir) as entries:
-            for entry in entries:
+            # ⚡ Bolt: Create a fast lookup map for json files to avoid os.path.exists calls
+            entries_list = list(entries)
+            json_files = {entry.name: entry for entry in entries_list if entry.name.endswith(".json") and entry.is_file()}
+
+            for entry in entries_list:
                 if entry.name.endswith(".mp4") and entry.is_file():
                     f = entry.name
                     ctime = entry.stat().st_ctime
@@ -951,12 +959,24 @@ values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Faceca
                                 pass
                         # Fallback: Read from JSON file if filename does not contain score
                         if score == 0:
-                            json_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json"))
-                            if os.path.exists(json_path):
+                            json_name = f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json")
+                            # ⚡ Bolt: Fast lookup using the pre-fetched scandir entries
+                            if json_name in json_files:
+                                json_entry = json_files[json_name]
+                                json_path = json_entry.path
+
                                 try:
-                                    with open(json_path, 'r', encoding='utf-8') as jf:
-                                        jdata = json.load(jf)
-                                        score = float(jdata.get("virality_score", 0))
+                                    json_mtime = json_entry.stat().st_mtime
+
+                                    # ⚡ Bolt: Check in-memory metadata cache against file modification time
+                                    if json_path in self.metadata_cache and self.metadata_cache[json_path][0] == json_mtime:
+                                        score = self.metadata_cache[json_path][1]
+                                    else:
+                                        with open(json_path, 'r', encoding='utf-8') as jf:
+                                            jdata = json.load(jf)
+                                            score = float(jdata.get("virality_score", 0))
+                                            # Update cache
+                                            self.metadata_cache[json_path] = (json_mtime, score)
                                 except Exception as e:
                                     print(f"Error reading virality score from {json_path}: {e}")
                     clip_data.append({

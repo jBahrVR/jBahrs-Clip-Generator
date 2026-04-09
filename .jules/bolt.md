@@ -16,3 +16,6 @@
 ## 2025-05-20 - [NumPy Boolean Array Counting]
 **Learning:** In NumPy, when counting `True` values in a boolean array, use `np.count_nonzero(boolean_array)` instead of `np.sum(boolean_array)`. This avoids the overhead of implicit boolean-to-integer array casting and executes significantly faster in hot loops.
 **Action:** Use `np.count_nonzero()` for counting boolean occurrences instead of `np.sum()`.
+## 2025-05-20 - [Redundant JSON Reading and Syscalls in UI Rendering]
+**Learning:** In UI refresh loops (like `populate_gallery`), repeating `os.path.exists` checks and `json.load()` calls for hundreds of files causes significant blocking and UI lag, especially since storage devices can be slow. Using `os.scandir` to build a single dictionary of all files inside a directory provides extremely fast O(1) existence checks. Combining this with an in-memory `metadata_cache` (validated via file modification time `st_mtime`) avoids re-parsing `.json` files when their data hasn't changed.
+**Action:** When populating a UI gallery from a directory, use `os.scandir` once to gather all `DirEntry` objects and create a lookup map for associated metadata files. For reading the actual contents, implement a cache checked against `st_mtime` to avoid redundant file I/O operations.
