@@ -767,6 +767,7 @@ values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Faceca
                 if hasattr(subprocess, 'SW_HIDE'):
                     startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
             cmd = [watcher.YTDLP_PATH, "--get-id", "--", url]
+            # 🛡️ Sentinel: Add timeout to prevent indefinite UI hangs (DoS) on network failure
             result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo, timeout=30)
             return result.stdout.strip()
         except Exception as e:

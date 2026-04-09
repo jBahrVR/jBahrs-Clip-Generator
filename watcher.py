@@ -178,6 +178,7 @@ def main(logger_callback=None):
             startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
 
     try:
+        # 🛡️ Sentinel: Add timeout to prevent indefinite hangs (DoS) on network failure
         result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo, timeout=30)
         latest_id = result.stdout.strip().partition('\n')[0] if result.stdout.strip() else None
         
