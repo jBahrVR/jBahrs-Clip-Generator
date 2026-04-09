@@ -735,7 +735,7 @@ values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Faceca
     def open_logs(self):
         log_path = os.path.join(config_manager.get_app_data_path(), "app_crash_log.txt")
         if os.path.exists(log_path):
-            subprocess.run(['explorer', '/select,', log_path])
+            subprocess.run(['explorer', '/select,', log_path], timeout=5)
         else:
             app_data_path = config_manager.get_app_data_path()
             if hasattr(os, 'startfile'):
@@ -763,7 +763,7 @@ values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Faceca
                 if hasattr(subprocess, 'SW_HIDE'):
                     startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
             cmd = [watcher.YTDLP_PATH, "--get-id", "--", url]
-            result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
+            result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo, timeout=30)
             return result.stdout.strip()
         except Exception as e:
             self.log_to_console(f"❌ yt-dlp error: {e}") 
@@ -1102,7 +1102,8 @@ values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Faceca
             self.detail_thumbnail.configure(image=None) # type: ignore
         if hasattr(os, 'startfile'):
             self.play_clip_btn.configure(state="normal", command=lambda: os.startfile(mp4_path)) # type: ignore
-            self.open_folder_btn.configure(state="normal", command=lambda: subprocess.run(['explorer', '/select,', os.path.abspath(mp4_path)]))
+            self.open_folder_btn.configure(state="normal", command=lambda: subprocess.run(['explorer', '/select,', os.path.abspath(mp4_path)], timeout=5))
+
     # --- Processing Engine ---
     def browse_local_file(self):
         file_paths = filedialog.askopenfilenames(
