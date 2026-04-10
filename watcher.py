@@ -103,7 +103,15 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
                     if path_part:
                         downloaded_file_path = path_part
 
-        process.wait()
+        try:
+            # 🛡️ Sentinel: Add timeout to prevent indefinite hangs (DoS) on yt-dlp stalls
+            process.wait(timeout=3600)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            if logger_callback:
+                logger_callback("❌ Download timed out after 1 hour.")
+            return None
 
         if process.returncode == 0:
             if logger_callback: 
