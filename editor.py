@@ -129,7 +129,14 @@ def extract_audio_hidden(file_path, sr=16000):
     startupinfo = _get_startupinfo()
 
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=startupinfo)
-    stdout, stderr = process.communicate()
+    try:
+        # 🛡️ Sentinel: Add timeout to prevent indefinite application hangs (DoS) on ffmpeg stalls
+        stdout, stderr = process.communicate(timeout=600)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+        raise RuntimeError("FFmpeg audio extraction timed out after 600 seconds.") # type: ignore
+
     if process.returncode != 0:
         raise RuntimeError(f"FFmpeg audio extraction failed: {stderr.decode()}") # type: ignore
         
