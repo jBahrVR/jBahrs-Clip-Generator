@@ -1,6 +1,7 @@
 import sys
 import os
 import json
+import unittest
 from unittest.mock import patch, mock_open, MagicMock
 
 from config_manager import get_default_config, save_config, load_config, CONFIG_FILE, OLD_LOCAL_CONFIG
@@ -26,6 +27,7 @@ def test_get_default_config():
     assert config["openai"]["api_key"] == "", "Default openai api_key should be empty"
     assert config["openai"]["chat_model"] == "gpt-4o", "Default openai chat_model should be 'gpt-4o'"
     assert config["openai"]["whisper_model"] == "base", "Default openai whisper_model should be 'base'"
+    assert config["openai"]["whisper_language"] == "Auto-Detect", "Default openai whisper_language should be 'Auto-Detect'"
     assert config["openai"]["base_url"] == "", "Default openai base_url should be empty"
 
     assert config["anthropic"]["api_key"] == "", "Default anthropic api_key should be empty"
@@ -57,7 +59,8 @@ def test_save_config_permissions():
     owner_permissions = mode & 0o777
 
     # The permissions should be 0o600 (-rw-------)
-    assert owner_permissions == 0o600, f"Expected permissions 0o600, but got {oct(owner_permissions)}"
+    if os.name != 'nt':
+        assert owner_permissions == 0o600, f"Expected permissions 0o600, but got {oct(owner_permissions)}"
 
     print("All tests for test_save_config_permissions passed!")
 
@@ -80,6 +83,7 @@ def test_load_config_migration():
          patch('builtins.open', mock_open(read_data='{}')):
         config = load_config()
         mock_move.assert_called_once_with(OLD_LOCAL_CONFIG, CONFIG_FILE)
+        assert config["openai"]["whisper_language"] == "Auto-Detect", "Migrated config should default whisper_language to 'Auto-Detect'"
     print("Test test_load_config_migration passed!")
 
 def test_load_config_migration_exception():
@@ -110,10 +114,46 @@ def test_load_config_invalid_json():
     print("Test test_load_config_invalid_json passed!")
 
 
+class TestAppConfigDataclass(unittest.TestCase):
+    def test_dot_notation_read(self):
+        config = get_default_config()
+        self.assertEqual(config.openai.chat_model, "gpt-4o")
+        self.assertEqual(config.settings.download_quality, "Best")
+
+    def test_sync_dot_to_dict(self):
+        config = get_default_config()
+        config.openai.chat_model = "gpt-4-custom"
+        self.assertEqual(config["openai"]["chat_model"], "gpt-4-custom")
+
+    def test_sync_dict_to_dot(self):
+        config = get_default_config()
+        config["settings"]["download_quality"] = "1080p"
+        self.assertEqual(config.settings.download_quality, "1080p")
+
+    def test_attribute_error(self):
+        config = get_default_config()
+        with self.assertRaises(AttributeError):
+            _ = config.openai.nonexistent_field
+
+    def test_serialization(self):
+        config = get_default_config()
+        config.openai.api_key = "test-key"
+        serialized = config.to_dict()
+        self.assertEqual(serialized["openai"]["api_key"], "test-key")
+
+        # Load back
+        deserialized = config.from_dict(serialized)
+        self.assertEqual(deserialized.openai.api_key, "test-key")
+
 if __name__ == "__main__":
+    import unittest
+    # Run the module functions
     test_get_default_config()
     test_save_config_permissions()
     test_load_config_no_file()
     test_load_config_migration()
     test_load_config_migration_exception()
     test_load_config_invalid_json()
+    # Run the TestCase class
+    unittest.main()
+

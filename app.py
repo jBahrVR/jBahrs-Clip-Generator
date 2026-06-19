@@ -10,6 +10,7 @@ if sys.stderr is None:
 import customtkinter as ctk # type: ignore
 from customtkinter import filedialog # type: ignore
 import config_manager # type: ignore
+import gui
 import threading
 import subprocess
 import time
@@ -44,504 +45,360 @@ class ClipGenApp(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        self._setup_sidebar()
-        self._setup_manual_frame()
-        self._setup_auto_frame()
-        self._setup_prompt_frame()
-        self._setup_settings_frame()
-        self._setup_gallery_frame()
+        # Instantiate views from gui package
+        self.sidebar_frame = gui.Sidebar(self)
+        self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
+
+        self.manual_frame = gui.ManualFrame(self)
+        # Aliasing for backwards compatibility
+        self.url_input = self.manual_frame.url_input
+        self.process_btn = self.manual_frame.process_btn
+        self.cancel_btn = self.manual_frame.cancel_btn
+        self.local_file_btn = self.manual_frame.local_file_btn
+        self.manual_status_label = self.manual_frame.manual_status_label
+        self.manual_progress = self.manual_frame.manual_progress
+        self.console_box = self.manual_frame.console_box
+
+        self.auto_frame = gui.AutoFrame(self)
+        self.platform_menu = self.auto_frame.platform_menu
+        self.type_menu = self.auto_frame.type_menu
+        self.target_menu = self.auto_frame.target_menu
+        self.lookback_menu = self.auto_frame.lookback_menu
+        self.interval_menu = self.auto_frame.interval_menu
+        self.auto_prompt_menu = self.auto_frame.auto_prompt_menu
+        self.auto_switch = self.auto_frame.auto_switch
+        self.auto_progress = self.auto_frame.auto_progress
+        self.auto_status = self.auto_frame.auto_status
+        self.auto_console = self.auto_frame.auto_console
+
+        self.prompt_frame = gui.PromptFrame(self)
+        self.profile_dropdown = self.prompt_frame.profile_dropdown
+        self.new_profile_btn = self.prompt_frame.new_profile_btn
+        self.delete_profile_btn = self.prompt_frame.delete_profile_btn
+        self.prompt_textbox = self.prompt_frame.prompt_textbox
+        self.save_prompt_btn = self.prompt_frame.save_prompt_btn
+
+        self.settings_frame = gui.SettingsFrame(self)
+        self.yt_id_entry = self.settings_frame.yt_id_entry
+        self.twitch_entry = self.settings_frame.twitch_entry
+        self.openai_entry = self.settings_frame.openai_entry
+        self.base_url_entry = self.settings_frame.base_url_entry
+        self.anthropic_entry = self.settings_frame.anthropic_entry
+        self.grok_entry = self.settings_frame.grok_entry
+        self.google_entry = self.settings_frame.google_entry
+        self.discord_entry = self.settings_frame.discord_entry
+        self.model_menu = self.settings_frame.model_menu
+        self.whisper_menu = self.settings_frame.whisper_menu
+        self.language_menu = self.settings_frame.language_menu
+        self.quality_menu = self.settings_frame.quality_menu
+        self.vod_dir_entry = self.settings_frame.vod_dir_entry
+        self.clip_dir_entry = self.settings_frame.clip_dir_entry
+        self.browser_menu = self.settings_frame.browser_menu
+        self.hardware_switch = self.settings_frame.hardware_switch
+        self.downmix_switch = self.settings_frame.downmix_switch
+        self.audio_peak_switch = self.settings_frame.audio_peak_switch
+        self.combat_switch = self.settings_frame.combat_switch
+        self.stabilize_switch = self.settings_frame.stabilize_switch
+        self.vertical_switch = self.settings_frame.vertical_switch
+        self.vertical_mode_menu = self.settings_frame.vertical_mode_menu
+        self.crop_x_entry = self.settings_frame.crop_x_entry
+        self.crop_y_entry = self.settings_frame.crop_y_entry
+        self.crop_w_entry = self.settings_frame.crop_w_entry
+        self.crop_h_entry = self.settings_frame.crop_h_entry
+
+        self.gallery_frame = gui.GalleryFrame(self)
+        self.sort_menu = self.gallery_frame.sort_menu
+        self.type_filter_menu = self.gallery_frame.type_filter_menu
+        self.score_filter_menu = self.gallery_frame.score_filter_menu
+        self.clip_listbox = self.gallery_frame.clip_listbox
+        self.select_all_checkbox = self.gallery_frame.select_all_checkbox
+        self.select_all_var = self.gallery_frame.select_all_var
+        self.refresh_gallery_btn = self.gallery_frame.refresh_gallery_btn
+        self.delete_marked_btn = self.gallery_frame.delete_marked_btn
+        self.detail_title = self.gallery_frame.detail_title
+        self.detail_score = self.gallery_frame.detail_score
+        self.detail_reasoning = self.gallery_frame.detail_reasoning
+        self.detail_thumbnail = self.gallery_frame.detail_thumbnail
+        self.play_clip_btn = self.gallery_frame.play_clip_btn
+        self.open_folder_btn = self.gallery_frame.open_folder_btn
+
+        # Align sidebar buttons references for highlights
+        self.nav_manual_btn = self.sidebar_frame.nav_manual_btn
+        self.nav_auto_btn = self.sidebar_frame.nav_auto_btn
+        self.nav_prompt_btn = self.sidebar_frame.nav_prompt_btn
+        self.nav_settings_btn = self.sidebar_frame.nav_settings_btn
+        self.nav_gallery_btn = self.sidebar_frame.nav_gallery_btn
 
         self.load_prompt_data()
         self.show_manual_frame()
 
-    def _setup_sidebar(self):
-        # ==================== SIDEBAR ====================
-        self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color="#1e1e1e")
-        self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(12, weight=1) 
+        self.after(100, self.check_and_download_binaries)
 
-        self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="jBahr's Clip\nGenerator", font=ctk.CTkFont(size=24, weight="bold"))
-        self.logo_label.grid(row=0, column=0, padx=20, pady=(30, 20))
+    def check_and_download_binaries(self):
+        if os.name != 'nt':
+            return  # Auto-download only implemented for Windows environment
 
-        self.nav_manual_btn = ctk.CTkButton(self.sidebar_frame, text="🎬 Manual Clipper", fg_color="transparent", border_width=1, command=self.show_manual_frame)
-        self.nav_manual_btn.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        ffmpeg_path = os.path.join(app_dir, "ffmpeg.exe")
+        ytdlp_path = os.path.join(app_dir, "yt-dlp.exe")
 
-        self.nav_auto_btn = ctk.CTkButton(self.sidebar_frame, text="⏳ Auto Scheduler", fg_color="transparent", border_width=1, command=self.show_auto_frame)
-        self.nav_auto_btn.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+        missing = []
+        if not os.path.exists(ffmpeg_path):
+            missing.append("ffmpeg")
+        if not os.path.exists(ytdlp_path):
+            missing.append("yt-dlp")
 
-        self.nav_prompt_btn = ctk.CTkButton(self.sidebar_frame, text="📝 Prompt Manager", fg_color="transparent", border_width=1, command=self.show_prompt_frame)
-        self.nav_prompt_btn.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
+        if not missing:
+            return
 
-        self.nav_settings_btn = ctk.CTkButton(self.sidebar_frame, text="⚙️ Settings", fg_color="transparent", border_width=1, command=self.show_settings_frame)
-        self.nav_settings_btn.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Downloading Prerequisites")
+        dialog.geometry("450x200")
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.resizable(False, False)
 
-        self.nav_gallery_btn = ctk.CTkButton(self.sidebar_frame, text="🖼️ Clip Gallery", fg_color="transparent", border_width=1, command=self.show_gallery_frame)
-        self.nav_gallery_btn.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
+        label = ctk.CTkLabel(dialog, text="Downloading missing components...", font=ctk.CTkFont(size=14, weight="bold"))
+        label.pack(pady=(20, 10))
 
-        self.github_btn = ctk.CTkButton(self.sidebar_frame, text="🌐 GitHub Repo", fg_color="#24292e", hover_color="#2f363d", command=lambda: webbrowser.open("https://github.com/jBahrVR/jBahrs-Clip-Generator"))
-        self.github_btn.grid(row=6, column=0, padx=20, pady=(10, 0), sticky="ew")
+        status_label = ctk.CTkLabel(dialog, text="Preparing download...", font=ctk.CTkFont(size=12))
+        status_label.pack(pady=5)
 
-        self.quick_access_label = ctk.CTkLabel(self.sidebar_frame, text="Quick Access", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray")
-        self.quick_access_label.grid(row=7, column=0, padx=20, pady=(20, 0), sticky="w")
+        progress_bar = ctk.CTkProgressBar(dialog, width=350)
+        progress_bar.pack(pady=10)
+        progress_bar.set(0)
 
-        self.open_vods_btn = ctk.CTkButton(self.sidebar_frame, text="📁 Raw VODs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("download_dir"))
-        self.open_vods_btn.grid(row=8, column=0, padx=20, pady=(5, 5), sticky="ew")
+        def download_thread():
+            try:
+                import requests
+                import zipfile
+                import io
+            except ImportError:
+                self.log_to_console("❌ Error: Missing requests library. Run 'pip install -r requirements.txt'")
+                status_label.configure(text="Error: Missing 'requests' module. Check logs.")
+                dialog.update_idletasks()
+                return
 
-        self.open_clips_btn = ctk.CTkButton(self.sidebar_frame, text="✂️ Generated Clips", fg_color="#2b2b2b", hover_color="#3b3b3b", command=lambda: self.open_local_folder("clips_dir"))
-        self.open_clips_btn.grid(row=9, column=0, padx=20, pady=(5, 5), sticky="ew")
+            try:
+                # 1. Download yt-dlp.exe if missing
+                if "yt-dlp" in missing:
+                    self.log_to_console("📥 Downloading yt-dlp.exe...")
+                    status_label.configure(text="Downloading yt-dlp.exe...")
+                    url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+                    response = requests.get(url, stream=True)
+                    response.raise_for_status()
+                    
+                    total_size = int(response.headers.get('content-length', 0))
+                    downloaded = 0
+                    
+                    with open(ytdlp_path, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                                if total_size:
+                                    percent = downloaded / total_size
+                                    progress_bar.set(percent)
+                                    status_label.configure(text=f"Downloading yt-dlp.exe ({int(percent * 100)}%)")
+                                    dialog.update_idletasks()
+                    self.log_to_console("✅ yt-dlp.exe downloaded successfully!")
 
-        self.open_logs_btn = ctk.CTkButton(self.sidebar_frame, text="📝 View Crash Logs", fg_color="#2b2b2b", hover_color="#3b3b3b", command=self.open_logs)
-        self.open_logs_btn.grid(row=10, column=0, padx=20, pady=(5, 5), sticky="ew")
+                # 2. Download ffmpeg.exe if missing
+                if "ffmpeg" in missing:
+                    self.log_to_console("📥 Downloading FFmpeg zip...")
+                    status_label.configure(text="Downloading FFmpeg builds (zip)...")
+                    progress_bar.set(0)
+                    dialog.update_idletasks()
 
-        self.open_readme_btn = ctk.CTkButton(self.sidebar_frame, text="📖 View Readme", fg_color="#2b2b2b", hover_color="#3b3b3b", command=self.open_readme)
-        self.open_readme_btn.grid(row=11, column=0, padx=20, pady=(5, 20), sticky="ew")
+                    url = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+                    response = requests.get(url, stream=True)
+                    response.raise_for_status()
 
-        self.discord_btn = ctk.CTkButton(self.sidebar_frame, text="💬 Join Discord", fg_color="#5865F2", hover_color="#4752C4", command=lambda: webbrowser.open("https://discord.gg/uUF8J9Zqwz"))
-        self.discord_btn.grid(row=12, column=0, padx=20, pady=(5, 5), sticky="ew")
+                    total_size = int(response.headers.get('content-length', 0))
+                    downloaded = 0
+                    zip_data = io.BytesIO()
 
-        self.version_label = ctk.CTkLabel(self.sidebar_frame, text="v1.2.1 Creator Edition", font=ctk.CTkFont(size=10), text_color="gray")
-        self.version_label.grid(row=13, column=0, padx=20, pady=10, sticky="s")
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            zip_data.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size:
+                                percent = downloaded / total_size
+                                progress_bar.set(percent * 0.9)
+                                status_label.configure(text=f"Downloading FFmpeg ({int(percent * 90)}%)")
+                                dialog.update_idletasks()
 
-    def _setup_manual_frame(self):
-        # ==================== MANUAL FRAME ====================
-        self.manual_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.manual_frame.grid_columnconfigure(0, weight=1)
-        self.manual_frame.grid_rowconfigure(4, weight=1)
+                    status_label.configure(text="Extracting ffmpeg.exe...")
+                    dialog.update_idletasks()
+
+                    zip_data.seek(0)
+                    with zipfile.ZipFile(zip_data) as z:
+                        ffmpeg_member = None
+                        for name in z.namelist():
+                            if name.endswith("bin/ffmpeg.exe"):
+                                ffmpeg_member = name
+                                break
+                        
+                        if ffmpeg_member:
+                            with z.open(ffmpeg_member) as source, open(ffmpeg_path, 'wb') as target:
+                                target.write(source.read())
+                            self.log_to_console("✅ ffmpeg.exe extracted successfully!")
+                        else:
+                            raise Exception("Could not find bin/ffmpeg.exe in the downloaded zip file.")
+
+                    progress_bar.set(1.0)
+                    status_label.configure(text="Finished downloading all components!")
+                    dialog.update_idletasks()
+
+                time.sleep(1)
+                dialog.destroy()
+
+            except Exception as e:
+                self.log_to_console(f"❌ Error during binary download/extraction: {e}")
+                status_label.configure(text=f"Error: {e}")
+                messagebox.showerror("Error", f"Failed to download required binaries:\n{e}\n\nPlease install them manually.")
+                dialog.destroy()
+
+        import threading
+        threading.Thread(target=download_thread, daemon=True).start()
+
+
+    def update_ytdlp(self):
+        self.log_to_console("🔄 Checking for yt-dlp updates...")
+        self.settings_frame.update_ytdlp_btn.configure(text="Updating...", fg_color="#e67e22", state="disabled")
         
-        self.manual_title = ctk.CTkLabel(self.manual_frame, text="Manual Video Processor", font=ctk.CTkFont(size=28, weight="bold"))
-        self.manual_title.grid(row=0, column=0, padx=30, pady=(30, 10), sticky="w")
-        
-        self.input_card = ctk.CTkFrame(self.manual_frame, corner_radius=15)
-        self.input_card.grid(row=1, column=0, padx=30, pady=10, sticky="ew")
-        self.input_card.grid_columnconfigure(0, weight=1)
+        def run_update():
+            import utils
+            try:
+                app_dir = os.path.dirname(os.path.abspath(__file__))
+                ytdlp_path = os.path.join(app_dir, "yt-dlp.exe")
+                
+                if not os.path.exists(ytdlp_path):
+                    self.log_to_console("❌ Error: yt-dlp.exe is missing. Run setup or restart the app to download it.")
+                    self.after(0, lambda: self.settings_frame.update_ytdlp_btn.configure(text="❌ Missing!", fg_color="#c0392b", state="normal"))
+                    self.after(3000, lambda: self.settings_frame.update_ytdlp_btn.configure(text="Update yt-dlp", fg_color=["#3a7ebf", "#1f538d"]))
+                    return
+                
+                cmd = [ytdlp_path, "--update"]
+                
+                ret = utils.run_subprocess_command(
+                    cmd,
+                    logger_callback=lambda line: self.log_to_console(f"[yt-dlp-update]: {line.strip()}"),
+                    cwd=app_dir
+                )
+                if ret == 0:
+                    self.log_to_console("✅ yt-dlp updated successfully!")
+                    self.after(0, lambda: self.settings_frame.update_ytdlp_btn.configure(text="✅ Updated!", fg_color="#2ecc71", state="normal"))
+                else:
+                    self.log_to_console("❌ yt-dlp update failed or already up-to-date.")
+                    self.after(0, lambda: self.settings_frame.update_ytdlp_btn.configure(text="❌ Failed/Up-to-date", fg_color="#c0392b", state="normal"))
+            except Exception as e:
+                self.log_to_console(f"❌ yt-dlp update error: {e}")
+                self.after(0, lambda: self.settings_frame.update_ytdlp_btn.configure(text="❌ Error", fg_color="#c0392b", state="normal"))
+            
+            self.after(3000, lambda: self.settings_frame.update_ytdlp_btn.configure(text="Update yt-dlp", fg_color=["#3a7ebf", "#1f538d"]))
+            
+        import threading
+        threading.Thread(target=run_update, daemon=True).start()
 
-        self.url_input = ctk.CTkEntry(self.input_card, placeholder_text="Paste URL or Select Local File(s)...", height=45, border_width=0)
-        self.url_input.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
-        self.url_input.bind("<Return>", self.start_manual_process)
-        
-        self.process_btn = ctk.CTkButton(self.input_card, text="Process Queue", height=45, text_color="#FFFFFF", font=ctk.CTkFont(weight="bold"), command=self.start_manual_process)
-        self.process_btn.grid(row=0, column=1, padx=(0, 10), pady=20)
 
-        self.cancel_btn = ctk.CTkButton(self.input_card, text="Cancel", height=45, text_color="#FFFFFF", fg_color="#c0392b", hover_color="#922b21", font=ctk.CTkFont(weight="bold"), state="disabled", command=self.cancel_manual_process)
-        self.cancel_btn.grid(row=0, column=2, padx=(0, 10), pady=20)
-
-        self.local_file_btn = ctk.CTkButton(self.input_card, text="📂 Browse Files", height=45, text_color="#FFFFFF", fg_color="#27ae60", hover_color="#1e8449", font=ctk.CTkFont(weight="bold"), command=self.browse_local_file)
-        self.local_file_btn.grid(row=0, column=3, padx=(0, 20), pady=20)
-        
-        self.manual_status_label = ctk.CTkLabel(self.manual_frame, text="Status: Ready", font=ctk.CTkFont(size=14, weight="bold"), text_color="#a0a0a0")
-        self.manual_status_label.grid(row=2, column=0, padx=30, pady=(10, 0), sticky="w")
-        
-        self.manual_progress = ctk.CTkProgressBar(self.manual_frame, mode="indeterminate", height=10)
-        self.manual_progress.grid(row=3, column=0, padx=30, pady=(5, 5), sticky="ew")
-        self.manual_progress.set(0)
-
-        self.cancel_requested = False
-
-        self.console_card = ctk.CTkFrame(self.manual_frame, corner_radius=15)
-        self.console_card.grid(row=4, column=0, padx=30, pady=(5, 10), sticky="nsew")
-        self.console_card.grid_columnconfigure(0, weight=1)
-        self.console_card.grid_rowconfigure(0, weight=1)
-
-        self.console_box = ctk.CTkTextbox(self.console_card, state="disabled", fg_color="#121212", font=ctk.CTkFont(family="Consolas", size=13))
-        self.console_box.grid(row=0, column=0, padx=15, pady=15, sticky="nsew")
-        
-        self.console_box.tag_config("error", foreground="#ff4d4d")
-        self.console_box.tag_config("success", foreground="#2ecc71")
-        self.console_box.tag_config("ai", foreground="#00d2ff")
-        self.console_box.tag_config("ffmpeg", foreground="#f39c12")
-
-    def _setup_auto_frame(self):
-        # ==================== AUTO FRAME ====================
-        self.auto_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.auto_frame.grid_columnconfigure(0, weight=1)
-        self.auto_frame.grid_rowconfigure(3, weight=1)
-
-        self.auto_title = ctk.CTkLabel(self.auto_frame, text="Automated Background Watcher", font=ctk.CTkFont(size=28, weight="bold"))
-        self.auto_title.grid(row=0, column=0, padx=30, pady=(30, 10), sticky="w")
-
-        self.auto_controls_card = ctk.CTkFrame(self.auto_frame, corner_radius=15)
-        self.auto_controls_card.grid(row=1, column=0, padx=30, pady=10, sticky="ew")
-        
-        ctk.CTkLabel(self.auto_controls_card, text="Platform:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(20,10))
-        self.platform_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["YouTube", "Twitch"], width=110)
-        self.platform_menu.grid(row=0, column=1, padx=5, pady=(20,10))
-        self.platform_menu.set(self.config.get("auto_scheduler", {}).get("platform", "YouTube"))
-
-        ctk.CTkLabel(self.auto_controls_card, text="Type:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=2, padx=10, pady=(20,10))
-        self.type_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["Livestreams Only", "Any Upload"], width=130)
-        self.type_menu.grid(row=0, column=3, padx=5, pady=(20,10))
-        self.type_menu.set(self.config.get("auto_scheduler", {}).get("video_type", "Livestreams Only"))
-
-        ctk.CTkLabel(self.auto_controls_card, text="Orientation:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=4, padx=10, pady=(20,10))
-        self.target_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["Vertical Only", "Horizontal Only", "Any"], width=130)
-        self.target_menu.grid(row=0, column=5, padx=5, pady=(20,10))
-        self.target_menu.set(self.config.get("auto_scheduler", {}).get("target_orientation", "Horizontal Only"))
-
-        ctk.CTkLabel(self.auto_controls_card, text="Max Age:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=10, pady=(10,10))
-        self.lookback_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["1 Day", "3 Days", "7 Days", "14 Days", "30 Days", "All Time"], width=110)
-        self.lookback_menu.grid(row=1, column=1, padx=5, pady=(10,10))
-        self.lookback_menu.set(self.config.get("auto_scheduler", {}).get("lookback_days", "7 Days"))
-
-        ctk.CTkLabel(self.auto_controls_card, text="Interval:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=2, padx=10, pady=(10,10))
-        self.interval_menu = ctk.CTkOptionMenu(self.auto_controls_card, values=["Every 1 Hour", "Every 4 Hours", "Every 12 Hours", "Every 24 Hours"], width=130)
-        self.interval_menu.grid(row=1, column=3, padx=5, pady=(10,10))
-        self.interval_menu.set(self.config.get("auto_scheduler", {}).get("check_interval", "Every 4 Hours"))
-
-        ctk.CTkLabel(self.auto_controls_card, text="Auto-Prompt:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=4, padx=10, pady=(10,10))
-        self.auto_prompt_menu = ctk.CTkOptionMenu(self.auto_controls_card, width=130)
-        self.auto_prompt_menu.grid(row=1, column=5, padx=5, pady=(10,10))
-
-        self.auto_switch = ctk.CTkSwitch(self.auto_controls_card, text="Enable Watcher", font=ctk.CTkFont(weight="bold"), command=self.toggle_auto)
-        self.auto_switch.grid(row=2, column=4, columnspan=2, padx=20, pady=(10,20), sticky="e")
-
-        self.auto_progress = ctk.CTkProgressBar(self.auto_frame, mode="indeterminate", height=10)
-        self.auto_progress.grid(row=2, column=0, padx=30, pady=(5, 5), sticky="ew")
-        self.auto_progress.set(0)
-
-        self.auto_console_card = ctk.CTkFrame(self.auto_frame, corner_radius=15)
-        self.auto_console_card.grid(row=3, column=0, padx=30, pady=(5, 10), sticky="nsew")
-        self.auto_console_card.grid_columnconfigure(0, weight=1)
-        self.auto_console_card.grid_rowconfigure(1, weight=1)
-
-        self.auto_status = ctk.CTkLabel(self.auto_console_card, text="● Status: OFF", text_color="gray", font=ctk.CTkFont(weight="bold"))
-        self.auto_status.grid(row=0, column=0, padx=20, pady=(15, 0), sticky="w")
-
-        self.auto_console = ctk.CTkTextbox(self.auto_console_card, state="disabled", fg_color="#121212", font=ctk.CTkFont(family="Consolas", size=13))
-        self.auto_console.grid(row=1, column=0, padx=15, pady=15, sticky="nsew")
-        
-        self.auto_console.tag_config("error", foreground="#ff4d4d")
-        self.auto_console.tag_config("success", foreground="#2ecc71")
-        self.auto_console.tag_config("ai", foreground="#00d2ff")
-        self.auto_console.tag_config("ffmpeg", foreground="#f39c12")
-
-    def _setup_prompt_frame(self):
-        # ==================== PROMPT MANAGER FRAME ====================
-        self.prompt_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.prompt_frame.grid_columnconfigure(0, weight=1)
-        self.prompt_frame.grid_rowconfigure(2, weight=1)
-        
-        self.prompt_title = ctk.CTkLabel(self.prompt_frame, text="AI Prompt Editor", font=ctk.CTkFont(size=28, weight="bold"))
-        self.prompt_title.grid(row=0, column=0, padx=30, pady=(30, 10), sticky="w")
-
-        self.prompt_select_card = ctk.CTkFrame(self.prompt_frame, corner_radius=15)
-        self.prompt_select_card.grid(row=1, column=0, padx=30, pady=10, sticky="ew")
-        
-        ctk.CTkLabel(self.prompt_select_card, text="Active Manual Profile:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=20, pady=20)
-        self.profile_dropdown = ctk.CTkOptionMenu(self.prompt_select_card, command=self.on_profile_change)
-        self.profile_dropdown.pack(side="left", padx=10)
-
-        self.new_profile_btn = ctk.CTkButton(self.prompt_select_card, text="➕ New", width=60, fg_color="#27ae60", hover_color="#1e8449", command=self.create_new_profile)
-        self.new_profile_btn.pack(side="left", padx=5)
-
-        self.delete_profile_btn = ctk.CTkButton(self.prompt_select_card, text="Delete Profile", fg_color="#c0392b", hover_color="#922b21", command=self.delete_profile)
-        self.delete_profile_btn.pack(side="right", padx=20)
-
-        self.prompt_editor_card = ctk.CTkFrame(self.prompt_frame, corner_radius=15)
-        self.prompt_editor_card.grid(row=2, column=0, padx=30, pady=10, sticky="nsew")
-        self.prompt_editor_card.grid_columnconfigure(0, weight=1)
-        self.prompt_editor_card.grid_rowconfigure(0, weight=1)
-
-        self.prompt_textbox = ctk.CTkTextbox(self.prompt_editor_card, font=ctk.CTkFont(size=14), wrap="word")
-        self.prompt_textbox.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
-
-        self.save_prompt_btn = ctk.CTkButton(self.prompt_editor_card, text="Save Current Prompt", height=40, font=ctk.CTkFont(weight="bold"), command=self.save_current_prompt)
-        self.save_prompt_btn.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="e")
-
-    def _setup_settings_frame(self):
-        # ==================== SETTINGS FRAME ====================
-        self.settings_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        self.settings_frame.grid_columnconfigure(0, weight=1)
-        
-        self.settings_title = ctk.CTkLabel(self.settings_frame, text="Configuration", font=ctk.CTkFont(size=28, weight="bold"))
-        self.settings_title.grid(row=0, column=0, padx=30, pady=(20, 10), sticky="w")
-
-        # --- Card 1: APIs & Models ---
-        self.api_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
-        self.api_card.grid(row=1, column=0, padx=30, pady=(5, 10), sticky="ew")
-        self.api_card.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(self.api_card, text="Authentication & AI Models", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
-
-        ctk.CTkLabel(self.api_card, text="YouTube Channel ID:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=5, sticky="e")
-        self.yt_id_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="e.g. UC_x5XG1OV2P6uZZ5FSM9Ttw")
-        self.yt_id_entry.grid(row=1, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
-        self.yt_id_entry.insert(0, self.config.get('youtube', {}).get('channel_id', ''))
-
-        ctk.CTkLabel(self.api_card, text="Twitch Username:", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="e")
-        self.twitch_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="e.g. ninja")
-        self.twitch_entry.grid(row=2, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
-        self.twitch_entry.insert(0, self.config.get('twitch', {}).get('username', ''))
-
-        self.api_link_label = ctk.CTkLabel(self.api_card, text="OpenAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
-        self.api_link_label.grid(row=3, column=0, padx=20, pady=5, sticky="e")
-        self.api_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://platform.openai.com/api-keys"))
-        self.openai_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="sk-proj-...")
-        self.openai_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
-        self.openai_entry.insert(0, self.config.get('openai', {}).get('api_key', ''))
-        self.test_openai_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_openai_key)
-        self.test_openai_btn.grid(row=3, column=2, padx=(0, 20), pady=5, sticky="e")
-
-        ctk.CTkLabel(self.api_card, text="Custom Base URL (DeepSeek/OpenRouter):", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=5, sticky="e")
-        self.base_url_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="Leave blank for OpenAI")
-        self.base_url_entry.grid(row=4, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
-        self.base_url_entry.insert(0, self.config.get('openai', {}).get('base_url', ''))
-
-        self.anthropic_link_label = ctk.CTkLabel(self.api_card, text="Anthropic API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
-        self.anthropic_link_label.grid(row=5, column=0, padx=20, pady=5, sticky="e")
-        self.anthropic_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://console.anthropic.com/settings/keys"))
-        self.anthropic_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="sk-ant-...")
-        self.anthropic_entry.grid(row=5, column=1, padx=(0, 10), pady=5, sticky="ew")
-        self.anthropic_entry.insert(0, self.config.get('anthropic', {}).get('api_key', ''))
-        self.test_anthropic_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_anthropic_key)
-        self.test_anthropic_btn.grid(row=5, column=2, padx=(0, 20), pady=5, sticky="e")
-
-        self.grok_link_label = ctk.CTkLabel(self.api_card, text="Grok/xAI API Key (Get Here):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
-        self.grok_link_label.grid(row=6, column=0, padx=20, pady=5, sticky="e")
-        self.grok_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://console.x.ai/"))
-        self.grok_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="xai-...")
-        self.grok_entry.grid(row=6, column=1, padx=(0, 10), pady=5, sticky="ew")
-        self.grok_entry.insert(0, self.config.get('xai', {}).get('api_key', ''))
-        self.test_grok_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_grok_key)
-        self.test_grok_btn.grid(row=6, column=2, padx=(0, 20), pady=5, sticky="e")
-
-        self.google_link_label = ctk.CTkLabel(self.api_card, text="Google API Key (Get Free):", font=ctk.CTkFont(weight="bold", underline=True), text_color="#3a7ebf", cursor="hand2")
-        self.google_link_label.grid(row=7, column=0, padx=20, pady=5, sticky="e")
-        self.google_link_label.bind("<Button-1>", lambda e: webbrowser.open("https://aistudio.google.com/app/apikey"))
-        self.google_entry = ctk.CTkEntry(self.api_card, show="•", height=35, placeholder_text="AIzaSy...")
-        self.google_entry.grid(row=7, column=1, padx=(0, 10), pady=5, sticky="ew")
-        self.google_entry.insert(0, self.config.get('google', {}).get('api_key', ''))
-        self.test_google_btn = ctk.CTkButton(self.api_card, text="Test Key", width=80, command=self.test_google_key)
-        self.test_google_btn.grid(row=7, column=2, padx=(0, 20), pady=5, sticky="e")
-
-        ctk.CTkLabel(self.api_card, text="Discord Webhook URL (Optional):", font=ctk.CTkFont(weight="bold")).grid(row=8, column=0, padx=20, pady=5, sticky="e")
-        self.discord_entry = ctk.CTkEntry(self.api_card, height=35, placeholder_text="https://discord.com/api/webhooks/...")
-        self.discord_entry.grid(row=8, column=1, padx=(0, 10), pady=5, sticky="ew")
-        self.discord_entry.insert(0, self.config.get('integrations', {}).get('discord_webhook', ''))
-        self.test_discord_btn = ctk.CTkButton(self.api_card, text="Test Alert", width=80, command=self.test_discord_webhook)
-        self.test_discord_btn.grid(row=8, column=2, padx=(0, 20), pady=5, sticky="e")
-
-        ctk.CTkLabel(self.api_card, text="AI Chat Model:", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=20, pady=5, sticky="e")
-        self.model_menu = ctk.CTkComboBox(self.api_card, values=[
+    def refresh_available_models(self):
+        # Default fallback models
+        models = [
+            "gemini-3.5-flash", "gemini-3.5-pro",
+            "gemini-3-flash-preview", "gemini-3-pro-preview",
             "gpt-4o", "gpt-4o-mini", 
-            "gemini-2.5-flash", "gemini-2.5-pro",
             "claude-sonnet-4-6", "claude-haiku-4-5-20251001",
             "grok-2-latest", "grok-2-mini",
             "deepseek-chat", "deepseek-reasoner",
-            "openrouter/google/gemini-2.5-pro", "openrouter/meta-llama/llama-3.1-70b-instruct"
-        ], height=35)
-        self.model_menu.grid(row=9, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
-        self.model_menu.set(self.config.get('openai', {}).get('chat_model', 'gpt-4o'))
-
-        ctk.CTkLabel(self.api_card, text="Whisper Transcribe Model:", font=ctk.CTkFont(weight="bold")).grid(row=10, column=0, padx=20, pady=5, sticky="e")
-        self.whisper_menu = ctk.CTkOptionMenu(self.api_card, values=["tiny", "base", "small", "medium", "large"], height=35)
-        self.whisper_menu.grid(row=10, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="ew")
-        self.whisper_menu.set(self.config.get('openai', {}).get('whisper_model', 'base'))
-
-        ctk.CTkLabel(self.api_card, text="VOD Language:", font=ctk.CTkFont(weight="bold")).grid(row=11, column=0, padx=20, pady=(5, 15), sticky="e")
-        self.language_menu = ctk.CTkComboBox(self.api_card, values=["Auto-Detect", "English", "Spanish", "French", "German", "Italian", "Portuguese", "Russian", "Japanese", "Korean", "Chinese"], height=35)
-        self.language_menu.grid(row=11, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="ew")
-        self.language_menu.set(self.config.get('openai', {}).get('whisper_language', 'English'))
-
-        # --- Card 2: Paths & Downloads ---
-        self.paths_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
-        self.paths_card.grid(row=2, column=0, padx=30, pady=(5, 10), sticky="ew")
-        self.paths_card.grid_columnconfigure(1, weight=1)
+            "openrouter/google/gemini-3.5-pro", "openrouter/meta-llama/llama-3.1-70b-instruct",
+            "gemini-2.5-flash (Deprecated)", "gemini-2.5-pro (Deprecated)"
+        ]
         
-        ctk.CTkLabel(self.paths_card, text="Paths & Downloads", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
+        def fetch():
+            fetched_models = set()
+            
+            # 1. Fetch from Google GenAI
+            google_key = self.config.get("google", {}).get("api_key", "").strip()
+            if google_key:
+                try:
+                    from google import genai
+                    client = genai.Client(api_key=google_key)
+                    for m in client.models.list():
+                        name = m.name
+                        if name.startswith("models/"):
+                            name = name.split("/", 1)[1]
+                        
+                        methods = [method.lower() for method in getattr(m, 'supported_generation_methods', [])]
+                        if "gemini" in name.lower() and "generatecontent" in methods:
+                            fetched_models.add(name)
+                except Exception as e:
+                    print(f"Error fetching Google models: {e}")
 
-        ctk.CTkLabel(self.paths_card, text="VOD Download Size:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=5, sticky="e")
-        self.quality_menu = ctk.CTkOptionMenu(self.paths_card, values=["Best", "1080p", "720p"], height=35)
-        self.quality_menu.grid(row=1, column=1, columnspan=2, padx=(0, 20), pady=5, sticky="w")
-        self.quality_menu.set(self.config.get('settings', {}).get('download_quality', 'Best'))
+            # 2. Fetch from OpenAI (or custom base url like deepseek / openrouter)
+            openai_key = self.config.get("openai", {}).get("api_key", "").strip()
+            base_url = self.config.get("openai", {}).get("base_url", "").strip()
+            if openai_key:
+                try:
+                    from openai import OpenAI
+                    client_args = {"api_key": openai_key}
+                    if base_url:
+                        client_args["base_url"] = base_url
+                    client = OpenAI(**client_args)
+                    for m in client.models.list():
+                        name = m.id
+                        if base_url:
+                            fetched_models.add(name)
+                        elif any(w in name.lower() for w in ["gpt-4", "gpt-3.5", "o1", "o3"]):
+                            fetched_models.add(name)
+                except Exception as e:
+                    print(f"Error fetching OpenAI/Custom models: {e}")
 
-        ctk.CTkLabel(self.paths_card, text="Raw VODs Folder:", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="e")
-        self.vod_dir_entry = ctk.CTkEntry(self.paths_card, height=35, placeholder_text="C:\\Videos\\Raw")
-        self.vod_dir_entry.grid(row=2, column=1, padx=(0, 10), pady=5, sticky="ew")
-        self.vod_dir_entry.insert(0, self.config.get('settings', {}).get('download_dir', ''))
-        self.vod_browse_btn = ctk.CTkButton(self.paths_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.vod_dir_entry))
-        self.vod_browse_btn.grid(row=2, column=2, padx=(0, 20), pady=5, sticky="e")
+            # 3. Fetch from Anthropic
+            anthropic_key = self.config.get("anthropic", {}).get("api_key", "").strip()
+            if anthropic_key:
+                try:
+                    import anthropic
+                    client = anthropic.Anthropic(api_key=anthropic_key)
+                    for m in client.models.list():
+                        fetched_models.add(m.id)
+                except Exception as e:
+                    print(f"Error fetching Anthropic models: {e}")
 
-        ctk.CTkLabel(self.paths_card, text="Generated Clips Folder:", font=ctk.CTkFont(weight="bold")).grid(row=3, column=0, padx=20, pady=5, sticky="e")
-        self.clip_dir_entry = ctk.CTkEntry(self.paths_card, height=35, placeholder_text="C:\\Videos\\Clips")
-        self.clip_dir_entry.grid(row=3, column=1, padx=(0, 10), pady=5, sticky="ew")
-        self.clip_dir_entry.insert(0, self.config.get('settings', {}).get('clips_dir', ''))
-        self.clip_browse_btn = ctk.CTkButton(self.paths_card, text="Browse...", width=80, command=lambda: self.browse_folder(self.clip_dir_entry))
-        self.clip_browse_btn.grid(row=3, column=2, padx=(0, 20), pady=5, sticky="e")
+            # 4. Fetch from Grok/xAI
+            grok_key = self.config.get("xai", {}).get("api_key", "").strip()
+            if grok_key:
+                try:
+                    from openai import OpenAI
+                    client = OpenAI(api_key=grok_key, base_url="https://api.x.ai/v1")
+                    for m in client.models.list():
+                        fetched_models.add(m.id)
+                except Exception as e:
+                    print(f"Error fetching Grok models: {e}")
 
-        ctk.CTkLabel(self.paths_card, text="Auth Browser (Cookies):", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=(5, 15), sticky="e")
-        self.browser_menu = ctk.CTkOptionMenu(self.paths_card, values=["None", "chrome", "edge", "firefox", "opera", "brave", "vivaldi"], height=35)
-        self.browser_menu.grid(row=4, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
-        self.browser_menu.set(self.config.get('settings', {}).get('auth_browser', 'None'))
-
-        # --- Card 3: Video Processing Rules ---
-        self.proc_card = ctk.CTkFrame(self.settings_frame, corner_radius=15)
-        self.proc_card.grid(row=3, column=0, padx=30, pady=(5, 10), sticky="ew")
-        self.proc_card.grid_columnconfigure(1, weight=1)
+            if fetched_models:
+                try:
+                    current_selection = self.model_menu.get()
+                except Exception:
+                    current_selection = self.config.get("openai", {}).get("chat_model", "gpt-4o")
+                
+                dynamic_list = sorted(list(fetched_models))
+                combined = []
+                
+                if current_selection and current_selection not in dynamic_list:
+                    combined.append(current_selection)
+                    
+                combined.extend(dynamic_list)
+                combined.extend([m for m in models if m not in dynamic_list and m != current_selection])
+                
+                self.after(0, lambda: [
+                    self.model_menu.configure(values=combined),
+                    self.model_menu.set(current_selection)
+                ])
         
-        ctk.CTkLabel(self.proc_card, text="Video Processing Rules", font=ctk.CTkFont(weight="bold", size=16), text_color="#a0a0a0").grid(row=0, column=0, columnspan=3, padx=20, pady=(15, 10), sticky="w")
+        import threading
+        threading.Thread(target=fetch, daemon=True).start()
 
-        self.hardware_switch = ctk.CTkSwitch(self.proc_card, text="GPU Hardware Encoding (NVENC/AMF)", font=ctk.CTkFont(weight="bold"))
-        self.hardware_switch.grid(row=1, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
-
-        self.downmix_switch = ctk.CTkSwitch(self.proc_card, text="Downmix Multi-Track Audio (OBS)", font=ctk.CTkFont(weight="bold"))
-        self.downmix_switch.grid(row=2, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
-
-        self.audio_peak_switch = ctk.CTkSwitch(self.proc_card, text="Measure Audio Peak Levels", font=ctk.CTkFont(weight="bold"))
-        self.audio_peak_switch.grid(row=3, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
-
-        self.combat_switch = ctk.CTkSwitch(self.proc_card, text="AI Combat Detection (Gunfights/Action)", font=ctk.CTkFont(weight="bold"))
-        self.combat_switch.grid(row=4, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
-
-        self.stabilize_switch = ctk.CTkSwitch(self.proc_card, text="Apply VR Anti-Shake Filter (Experimental/Slow)", font=ctk.CTkFont(weight="bold"))
-        self.stabilize_switch.grid(row=5, column=0, columnspan=2, padx=20, pady=(5, 5), sticky="w")
-
-        self.vertical_switch = ctk.CTkSwitch(self.proc_card, text="Generate Vertical Shorts (9:16)", font=ctk.CTkFont(weight="bold"))
-        self.vertical_switch.grid(row=6, column=0, padx=20, pady=(15, 5), sticky="w")
-        
-        self.vertical_mode_menu = ctk.CTkOptionMenu(
-            self.proc_card, 
-            values=["Standard Center Crop", "Facecam Top-Left", "Facecam Top-Right", "Facecam Bottom-Left", "Facecam Bottom-Right", "Custom Coordinates"],
-            height=35
-        )
-        self.vertical_mode_menu.grid(row=6, column=1, columnspan=2, padx=(0, 20), pady=(15, 5), sticky="w")
-
-        self.coord_frame = ctk.CTkFrame(self.proc_card, fg_color="transparent")
-        self.coord_frame.grid(row=7, column=1, columnspan=2, padx=(0, 20), pady=(5, 15), sticky="w")
-        
-        ctk.CTkLabel(self.coord_frame, text="X:").pack(side="left", padx=(0, 5))
-        self.crop_x_entry = ctk.CTkEntry(self.coord_frame, width=50)
-        self.crop_x_entry.pack(side="left", padx=(0, 10))
-        
-        ctk.CTkLabel(self.coord_frame, text="Y:").pack(side="left", padx=(0, 5))
-        self.crop_y_entry = ctk.CTkEntry(self.coord_frame, width=50)
-        self.crop_y_entry.pack(side="left", padx=(0, 10))
-        
-        ctk.CTkLabel(self.coord_frame, text="W:").pack(side="left", padx=(0, 5))
-        self.crop_w_entry = ctk.CTkEntry(self.coord_frame, width=50)
-        self.crop_w_entry.pack(side="left", padx=(0, 10))
-        
-        ctk.CTkLabel(self.coord_frame, text="H:").pack(side="left", padx=(0, 5))
-        self.crop_h_entry = ctk.CTkEntry(self.coord_frame, width=50)
-        self.crop_h_entry.pack(side="left", padx=(0, 0))
-
-        # LOAD SAVED STATES
-        settings_cfg = self.config.get('settings', {})
-        if settings_cfg.get('vr_stabilization', False): self.stabilize_switch.select()
-        else: self.stabilize_switch.deselect()
-
-        if settings_cfg.get('hardware_encoding', False): self.hardware_switch.select()
-        else: self.hardware_switch.deselect()
-
-        if settings_cfg.get('audio_downmix', True): self.downmix_switch.select()
-        else: self.downmix_switch.deselect()
-
-        if settings_cfg.get('audio_peak_detection', True): self.audio_peak_switch.select()
-        else: self.audio_peak_switch.deselect()
-
-        if settings_cfg.get('combat_detection', True): self.combat_switch.select()
-        else: self.combat_switch.deselect()
-
-        if settings_cfg.get('vertical_export', False): self.vertical_switch.select()
-        else: self.vertical_switch.deselect()
-        
-        self.vertical_mode_menu.set(settings_cfg.get('vertical_mode', 'Standard Center Crop'))
-        self.crop_x_entry.insert(0, settings_cfg.get('crop_x', '0'))
-        self.crop_y_entry.insert(0, settings_cfg.get('crop_y', '0'))
-        self.crop_w_entry.insert(0, settings_cfg.get('crop_w', '400'))
-        self.crop_h_entry.insert(0, settings_cfg.get('crop_h', '225'))
-
-        self.help_card = ctk.CTkFrame(self.settings_frame, corner_radius=15, fg_color="#1a1a1a")
-        self.help_card.grid(row=4, column=0, padx=30, pady=(20, 0), sticky="ew")
-        
-        help_text = (
-            "🚀 Quick Start Guide:\n\n"
-            "1. AI Engines: Gemini 2.5 Flash is highly recommended for streams over 1 hour.\n"
-            "2. Hardware: NVIDIA GPUs (CUDA) process audio infinitely faster than CPU-only systems.\n"
-            "3. Vertical Generation: Custom Coordinates are based on a 1080p source video size.\n\n"
-            "⚠️ IMPORTANT: Make sure to click 'Save Settings' after making any changes above!"
-        )
-        self.help_label = ctk.CTkLabel(self.help_card, text=help_text, justify="left", font=ctk.CTkFont(size=12), padx=20, pady=20)
-        self.help_label.pack(anchor="w")
-
-        self.save_btn = ctk.CTkButton(self.settings_frame, text="Save Settings", height=45, font=ctk.CTkFont(weight="bold"), command=self.save_settings)
-        self.save_btn.grid(row=5, column=0, padx=30, pady=20, sticky="e")
-
-    def _setup_gallery_frame(self):
-        # ==================== GALLERY FRAME ====================
-        self.gallery_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.gallery_frame.grid_columnconfigure(1, weight=1)
-        self.gallery_frame.grid_rowconfigure(3, weight=1)
-
-        self.gallery_title = ctk.CTkLabel(self.gallery_frame, text="Clip Gallery & Reasoning", font=ctk.CTkFont(size=28, weight="bold"))
-        self.gallery_title.grid(row=0, column=0, columnspan=2, padx=30, pady=(30, 10), sticky="w")
-        
-        self.sort_frame = ctk.CTkFrame(self.gallery_frame, fg_color="transparent")
-        self.sort_frame.grid(row=1, column=0, padx=(30, 10), pady=(0, 5), sticky="ew")
-        
-        self.sort_label = ctk.CTkLabel(self.sort_frame, text="Sort by:", font=ctk.CTkFont(size=12))
-        self.sort_label.pack(side="left", padx=(0, 5))
-        
-        self.sort_menu = ctk.CTkOptionMenu(self.sort_frame, values=["Date (Newest)", "Date (Oldest)", "Virality (High)", "Virality (Low)"], 
-                                           command=lambda _: self.populate_gallery())
-        self.sort_menu.pack(side="left", fill="x", expand=True)
-        self.sort_menu.set("Date (Newest)")
-
-        # --- Filters ---
-        self.filter_frame = ctk.CTkFrame(self.gallery_frame, fg_color="transparent")
-        self.filter_frame.grid(row=2, column=0, padx=(30, 10), pady=(0, 5), sticky="ew")
-        
-        ctk.CTkLabel(self.filter_frame, text="Type:", font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 5))
-        self.type_filter_menu = ctk.CTkOptionMenu(self.filter_frame, values=["All", "Horizontal", "Vertical"], width=100, command=lambda _: self.populate_gallery())
-        self.type_filter_menu.pack(side="left", padx=(0, 10))
-        self.type_filter_menu.set("All")
-        
-        ctk.CTkLabel(self.filter_frame, text="Min Score:", font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 5))
-        self.score_filter_menu = ctk.CTkOptionMenu(self.filter_frame, values=["All", "3+", "5+", "7+", "8+", "9+"], width=80, command=lambda _: self.populate_gallery())
-        self.score_filter_menu.pack(side="left")
-        self.score_filter_menu.set("All")
-
-        self.clip_listbox = ctk.CTkScrollableFrame(self.gallery_frame, width=300, corner_radius=15)
-        self.clip_listbox.grid(row=3, column=0, padx=(30, 10), pady=10, sticky="nsew")
-
-        self.gallery_actions_frame = ctk.CTkFrame(self.gallery_frame, fg_color="transparent")
-        self.gallery_actions_frame.grid(row=4, column=0, padx=(30, 10), pady=(0, 10), sticky="ew")
-
-        self.select_all_var = ctk.BooleanVar(value=False)
-        self.select_all_checkbox = ctk.CTkCheckBox(self.gallery_actions_frame, text="Select All", variable=self.select_all_var, command=self.toggle_select_all)
-        self.select_all_checkbox.pack(side="left", padx=(0, 10))
-
-        self.refresh_gallery_btn = ctk.CTkButton(self.gallery_actions_frame, text="🔄 Refresh List", command=self.refresh_gallery_action)
-        self.refresh_gallery_btn.pack(side="right", fill="x", expand=True)
-
-        self.delete_marked_btn = ctk.CTkButton(self.gallery_frame, text="🗑️ Delete Marked Clips", fg_color="#c0392b", hover_color="#922b21", command=self.confirm_delete_marked)
-        self.delete_marked_btn.grid(row=5, column=0, padx=(30, 10), pady=(0, 20), sticky="ew")
-
-        self.details_card = ctk.CTkFrame(self.gallery_frame, corner_radius=15)
-        self.details_card.grid(row=1, column=1, rowspan=5, padx=(10, 30), pady=(10, 20), sticky="nsew")
-        self.details_card.grid_columnconfigure(0, weight=1)
-
-        self.detail_title = ctk.CTkLabel(self.details_card, text="Select a clip to view details", font=ctk.CTkFont(size=20, weight="bold"))
-        self.detail_title.grid(row=0, column=0, padx=20, pady=20, sticky="w")
-
-        self.detail_score = ctk.CTkLabel(self.details_card, text="Score: --/10", font=ctk.CTkFont(size=16), text_color="#2ecc71")
-        self.detail_score.grid(row=1, column=0, padx=20, pady=5, sticky="w")
-
-        self.detail_reasoning = ctk.CTkTextbox(self.details_card, font=ctk.CTkFont(size=14), wrap="word", fg_color="transparent")
-        self.detail_reasoning.grid(row=2, column=0, padx=20, pady=10, sticky="nsew")
-        self.details_card.grid_rowconfigure(2, weight=1)
-
-        self.detail_thumbnail = ctk.CTkLabel(self.details_card, text="")
-        self.detail_thumbnail.grid(row=3, column=0, padx=20, pady=5)
-
-        self.gallery_btns_frame = ctk.CTkFrame(self.details_card, fg_color="transparent")
-        self.gallery_btns_frame.grid(row=4, column=0, padx=20, pady=20, sticky="ew")
-        self.gallery_btns_frame.grid_columnconfigure((0, 1), weight=1)
-
-        self.play_clip_btn = ctk.CTkButton(self.gallery_btns_frame, text="▶️ Play Clip", height=50, font=ctk.CTkFont(weight="bold"), state="disabled")
-        self.play_clip_btn.grid(row=0, column=0, padx=(0, 5), sticky="ew")
-
-        self.open_folder_btn = ctk.CTkButton(self.gallery_btns_frame, text="📁 Open Folder", height=50, font=ctk.CTkFont(weight="bold"), state="disabled", fg_color="#2b2b2b", hover_color="#3b3b3b")
-        self.open_folder_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
     def _init_logging(self):
         log_dir = os.path.join(config_manager.get_app_data_path(), "logs")
@@ -622,9 +479,9 @@ class ClipGenApp(ctk.CTk):
         self.test_google_btn.configure(text="Testing...", fg_color="#e67e22")
         def run_test():
             try:
-                import google.generativeai as genai # type: ignore
-                genai.configure(api_key=key)
-                list(genai.list_models()) 
+                from google import genai # type: ignore
+                client = genai.Client(api_key=key)
+                client.models.list() 
                 self.after(0, lambda: self.test_google_btn.configure(text="✅ Valid!", fg_color="#2ecc71"))
             except Exception as e:
                 print(f"Google Key Test Error: {e}")
@@ -800,6 +657,7 @@ class ClipGenApp(ctk.CTk):
         self._hide_all_frames()
         self.settings_frame.grid(row=0, column=1, sticky="nsew")
         self._highlight_button(self.nav_settings_btn)
+        self.refresh_available_models()
 
     def show_gallery_frame(self):
         self._hide_all_frames()
@@ -904,6 +762,7 @@ class ClipGenApp(ctk.CTk):
 
         config_manager.save_config(self.config)
         self.log_to_console("✅ Settings saved!")
+        self.refresh_available_models()
 
         # Provide immediate visual feedback on the button (prevent double-click bug)
         if self.save_btn.cget("text") != "✅ Saved!":
@@ -1198,7 +1057,19 @@ class ClipGenApp(ctk.CTk):
     def _auto_run_loop(self):
         while self.is_auto_running:
             watcher.main(logger_callback=lambda msg: self.log_to_console(msg, source="auto"))
-            for _ in range(14400):
+            
+            # Map check_interval from config to seconds
+            interval_str = self.config.get("auto_scheduler", {}).get("check_interval", "Every 4 Hours")
+            if interval_str == "Every 1 Hour":
+                seconds = 3600
+            elif interval_str == "Every 12 Hours":
+                seconds = 43200
+            elif interval_str == "Every 24 Hours":
+                seconds = 86400
+            else: # "Every 4 Hours"
+                seconds = 14400
+                
+            for _ in range(seconds):
                 if not self.is_auto_running: break
                 time.sleep(1)
 

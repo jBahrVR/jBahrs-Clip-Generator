@@ -8,6 +8,8 @@ from openai import OpenAI # type: ignore
 import numpy as np # type: ignore
 import io
 import contextlib
+import utils
+
 
 class WhisperProgressStream(io.StringIO):
     def __init__(self, logger):
@@ -31,9 +33,10 @@ class WhisperProgressStream(io.StringIO):
         pass
 
 try:
-    import google.generativeai as genai # type: ignore
+    from google import genai
     HAS_GEMINI = True
 except ImportError:
+    genai = None
     HAS_GEMINI = False
 
 try:
@@ -118,25 +121,11 @@ def extract_audio_hidden(file_path, sr=16000):
         "-f", "s16le", "-ac", "1", "-acodec", "pcm_s16le", "-ar", str(sr), "-"
     ]
     
-    startupinfo = _get_startupinfo()
-
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=startupinfo)
-    stdout, stderr = process.communicate()
-    if process.returncode != 0:
-        raise RuntimeError(f"FFmpeg audio extraction failed: {stderr.decode()}") # type: ignore
+    returncode, stdout, stderr = utils.run_subprocess_binary(cmd)
+    if returncode != 0:
+        raise RuntimeError(f"FFmpeg audio extraction failed: {stderr.decode(errors='replace')}")
         
     return np.frombuffer(stdout, np.int16).flatten().astype(np.float32) / 32768.0
-
-def _get_startupinfo():
-    """Returns the startupinfo configuration to hide the FFmpeg command window on Windows."""
-    startupinfo = None
-    if os.name == 'nt' and hasattr(subprocess, 'STARTUPINFO'):
-        startupinfo = subprocess.STARTUPINFO() # type: ignore
-        if hasattr(subprocess, 'STARTF_USESHOWWINDOW'):
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW # type: ignore
-        if hasattr(subprocess, 'SW_HIDE'):
-            startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
-    return startupinfo
 
 def _get_gpu_codec(logger=None):
     """Detects the optimal GPU architecture for hardware encoding."""
@@ -150,7 +139,7 @@ def _get_gpu_codec(logger=None):
         if logger: logger(f"⚠️ Failed to detect GPU for hardware encoding: {e}")
     return gpu_codec
 
-def _generate_horizontal_clip(file_path, output_file, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, startupinfo, logger):
+def _generate_horizontal_clip(file_path, output_file, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, logger, is_cancelled=None):
     cmd = [
         "ffmpeg", "-y",
         "-ss", str(start_time),
@@ -175,9 +164,17 @@ def _generate_horizontal_clip(file_path, output_file, start_time, end_time, vide
     if logger:
         logger(f"✂️ Cutting horizontal clip ({start_time}s - {end_time}s)...")
         
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+    output_lines = []
+    ret = utils.run_subprocess_command(
+        cmd,
+        logger_callback=output_lines.append,
+        is_cancelled=is_cancelled
+    )
+    if ret != 0:
+        error_msg = "".join(output_lines)
+        raise RuntimeError(f"FFmpeg horizontal clip generation failed with exit code {ret}: {error_msg}")
 
-def _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vertical_mode, config, startupinfo, logger):
+def _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vertical_mode, config, logger, is_cancelled=None):
     if logger: logger(f"📱 Generating Vertical Shorts format ({vertical_mode})...")
 
     if vertical_mode == "Standard Center Crop":
@@ -226,19 +223,35 @@ def _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_
         vert_cmd.extend(audio_codec_flags)
         vert_cmd.append(vert_output)
 
-    subprocess.run(vert_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+    output_lines = []
+    ret = utils.run_subprocess_command(
+        vert_cmd,
+        logger_callback=output_lines.append,
+        is_cancelled=is_cancelled
+    )
+    if ret != 0:
+        error_msg = "".join(output_lines)
+        raise RuntimeError(f"FFmpeg vertical clip generation failed with exit code {ret}: {error_msg}")
 
-def _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, startupinfo, logger):
+def _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, logger, is_cancelled=None):
     if logger: logger("📸 Generating clip thumbnail...")
     mid_point = (end_time - start_time) / 2
     thumb_cmd = [
         "ffmpeg", "-y", "-ss", str(mid_point), "-i", target_for_thumb,
         "-vframes", "1", "-vf", "scale=-1:200", "-q:v", "5", thumb_file
     ]
-    subprocess.run(thumb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=startupinfo, check=True)
+    output_lines = []
+    ret = utils.run_subprocess_command(
+        thumb_cmd,
+        logger_callback=output_lines.append,
+        is_cancelled=is_cancelled
+    )
+    if ret != 0:
+        error_msg = "".join(output_lines)
+        raise RuntimeError(f"FFmpeg thumbnail generation failed with exit code {ret}: {error_msg}")
 
 
-def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, vertical_export, vertical_mode, config, startupinfo, logger, is_cancelled):
+def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, vertical_export, vertical_mode, config, logger, is_cancelled):
     if is_cancelled and is_cancelled():
         if logger: logger("🛑 Clip extraction aborted by user.")
         return None
@@ -256,7 +269,7 @@ def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec,
     created_files_for_clip = []
 
     try:
-        _generate_horizontal_clip(file_path, output_file, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, startupinfo, logger)
+        _generate_horizontal_clip(file_path, output_file, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, logger, is_cancelled)
         created_files_for_clip.append(output_file)
 
         with open(json_meta_file, 'w', encoding='utf-8') as meta_f:
@@ -270,7 +283,7 @@ def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec,
                 if logger: logger("🛑 Clip extraction aborted by user.")
                 return created_files_for_clip
                 
-            _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vertical_mode, config, startupinfo, logger)
+            _generate_vertical_clip(file_path, vert_output, start_time, end_time, video_codec, audio_codec_flags, hardware_encoding, vertical_mode, config, logger, is_cancelled)
             created_files_for_clip.append(vert_output)
 
         # --- THUMBNAIL GENERATOR ---
@@ -281,7 +294,7 @@ def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec,
             if logger: logger("🛑 Clip extraction aborted by user.")
             return created_files_for_clip
 
-        _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, startupinfo, logger)
+        _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, logger, is_cancelled)
 
     except Exception as e:
         if logger:
@@ -307,15 +320,13 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
     video_codec = gpu_codec if hardware_encoding else "libx264"
     audio_codec_flags = ["-ac", "2", "-c:a", "aac", "-b:a", "192k"] if audio_downmix else ["-c:a", "copy"]
 
-    startupinfo = _get_startupinfo()
-
     created_files = []
     for i, clip in enumerate(clips_data.get("clips", [])):
         clip_files = _process_single_clip(
             i, clip, file_path, base_name, output_dir,
             video_codec, audio_codec_flags, hardware_encoding,
             vr_stabilization, vertical_export, vertical_mode,
-            config, startupinfo, logger, is_cancelled
+            config, logger, is_cancelled
         )
 
         if clip_files is None:
@@ -325,7 +336,9 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None):
         
     return created_files
 
+
 def _validate_api_keys(config, chat_model, logger):
+    chat_model = chat_model.replace(" (Deprecated)", "").strip()
     openai_key = config.get("openai", {}).get("api_key", "")
     openai_base_url = config.get("openai", {}).get("base_url", "")
     google_key = config.get("google", {}).get("api_key", "")
@@ -455,6 +468,7 @@ def _transcribe_audio_to_segments(file_path, config, logger, is_cancelled):
     return segments
 
 def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
+    chat_model = chat_model.replace(" (Deprecated)", "").strip()
     openai_key = config.get("openai", {}).get("api_key", "")
     openai_base_url = config.get("openai", {}).get("base_url", "")
     google_key = config.get("google", {}).get("api_key", "")
@@ -486,21 +500,20 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
 
     if is_gemini_model and not is_openrouter:
         if not HAS_GEMINI:
-            if logger: logger("❌ Error: google-generativeai module missing.")
+            if logger: logger("❌ Error: google-genai module missing. Run 'pip install -r requirements.txt'")
             return []
             
         if logger: logger(f"🌌 Routing to native Gemini Engine ({chat_model}) with {len(segments)} segments...")
 
-        genai.configure(api_key=google_key)
-        model = genai.GenerativeModel(
-            model_name=chat_model,
-            system_instruction=prompt_text
-        )
-
         try:
-            response = model.generate_content(
-                f"Analyze this entire gaming transcript. The timestamps for each line are in brackets. Return strictly JSON.\n\n{full_transcript}",
-                generation_config={"response_mime_type": "application/json"}
+            client = genai.Client(api_key=google_key)
+            response = client.models.generate_content(
+                model=chat_model,
+                contents=f"Analyze this entire gaming transcript. The timestamps for each line are in brackets. Return strictly JSON.\n\n{full_transcript}",
+                config={
+                    "system_instruction": prompt_text,
+                    "response_mime_type": "application/json"
+                }
             )
             chunk_data = json.loads(response.text)
             found_clips = chunk_data.get("clips", [])
@@ -584,6 +597,7 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
     """Main orchestration function for analyzing and cutting clips."""
     config = config_manager.load_config()
     chat_model = config.get("openai", {}).get("chat_model", "gpt-4o")
+    chat_model = chat_model.replace(" (Deprecated)", "").strip()
     clips_dir = config.get("settings", {}).get("clips_dir", "")
 
     if not clips_dir:

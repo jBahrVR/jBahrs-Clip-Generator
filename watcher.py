@@ -2,6 +2,7 @@ import os
 import subprocess
 import config_manager # type: ignore
 import editor # type: ignore
+import utils
 
 YTDLP_PATH = "yt-dlp.exe" if os.name == 'nt' else "yt-dlp"
 
@@ -54,56 +55,42 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
     cmd.append("--")
     cmd.append(url)
 
-    startupinfo = None
-    if os.name == 'nt' and hasattr(subprocess, 'STARTUPINFO'):
-        startupinfo = subprocess.STARTUPINFO() # type: ignore
-        if hasattr(subprocess, 'STARTF_USESHOWWINDOW'):
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW # type: ignore
-        if hasattr(subprocess, 'SW_HIDE'):
-            startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
-
     if logger_callback: 
         logger_callback(f"⬇️ Starting download for {url}...")
 
+    downloaded_file_path = None
+    error_log = []
+
+    def log_progress(line: str) -> None:
+        nonlocal downloaded_file_path
+        line = line.strip()
+        if not line:
+            return
+        
+        # Keep the last 10 lines of console output in memory
+        error_log.append(line)
+        if len(error_log) > 10:
+            error_log.pop(0)
+        
+        if logger_callback: 
+            # Print progress and catch any explicit ERROR strings
+            if "[download]" in line or "[Merger]" in line or "ERROR:" in line:
+                logger_callback(f"[yt-dlp]: {line}")
+        
+        if "Merging formats into" in line:
+            parts = line.split('"')
+            if len(parts) >= 3:
+                downloaded_file_path = parts[1]
+
     try:
-        process = subprocess.Popen(
+        returncode = utils.run_subprocess_command(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,  # Redirects errors into the stdout stream
-            text=True,
-            startupinfo=startupinfo,
-            bufsize=1,
-            universal_newlines=True,
+            logger_callback=log_progress,
+            is_cancelled=is_cancelled,
             cwd=download_dir
         )
 
-        downloaded_file_path = None
-        error_log = []  # Keep a rolling log of the output to catch hidden errors
-
-        if process.stdout:
-            for line in process.stdout: # type: ignore
-                line = line.strip()
-                if not line:
-                    continue
-                
-                # Keep the last 10 lines of console output in memory
-                error_log.append(line)
-                if len(error_log) > 10:
-                    error_log.pop(0)
-                
-                if logger_callback: 
-                    # Print progress and catch any explicit ERROR strings
-                    if "[download]" in line or "[Merger]" in line or "ERROR:" in line:
-                        logger_callback(f"[yt-dlp]: {line}")
-                
-                if "Merging formats into" in line:
-                    parts = line.split('"')
-                    if len(parts) >= 3:
-                        downloaded_file_path = parts[1]
-
-        process.wait()
-
-        if process.returncode == 0:
+        if returncode == 0:
             if logger_callback: 
                 logger_callback("✅ Download completed successfully!")
             
@@ -122,7 +109,7 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
         else:
             # THE FIX: Print the actual error message instead of just "Return Code 1"
             if logger_callback:
-                err_strings = [str(x) for x in error_log[-3:] if x is not None] # type: ignore
+                err_strings = [str(x) for x in error_log[-3:] if x is not None]
                 last_errors = "\n".join(err_strings)
                 logger_callback(f"❌ Download failed! yt-dlp says:\n{last_errors}")
             return None
@@ -148,7 +135,13 @@ def main(logger_callback=None):
         return
 
     # Check the streams archive for YT, and the past broadcasts archive for Twitch
-    target_url = f"https://www.youtube.com/channel/{yt_id}/streams" if platform == "YouTube" else f"https://www.twitch.tv/{twitch_user}/videos?filter=archives"
+    if platform == "YouTube":
+        if yt_id.startswith("@"):
+            target_url = f"https://www.youtube.com/{yt_id}/streams"
+        else:
+            target_url = f"https://www.youtube.com/channel/{yt_id}/streams"
+    else:
+        target_url = f"https://www.twitch.tv/{twitch_user}/videos?filter=archives"
 
     if logger_callback: 
         logger_callback(f"📡 Checking {platform} for new content...")
@@ -162,17 +155,9 @@ def main(logger_callback=None):
         target_url
     ]
     
-    startupinfo = None
-    if os.name == 'nt' and hasattr(subprocess, 'STARTUPINFO'):
-        startupinfo = subprocess.STARTUPINFO() # type: ignore
-        if hasattr(subprocess, 'STARTF_USESHOWWINDOW'):
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW # type: ignore
-        if hasattr(subprocess, 'SW_HIDE'):
-            startupinfo.wShowWindow = subprocess.SW_HIDE # type: ignore
-
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
-        output_lines = result.stdout.strip().split('\n')
+        output_lines = []
+        code = utils.run_subprocess_command(cmd, logger_callback=lambda line: output_lines.append(line.strip()))
         latest_id = output_lines[0] if output_lines and output_lines[0] else None
         
         # 👈 THE FIX: Strip the stray 'v' from Twitch IDs so the URL doesn't 404

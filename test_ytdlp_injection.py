@@ -46,9 +46,9 @@ class TestYTDLPInjection(unittest.TestCase):
         except Exception as e:
             self.fail(f"Test failed due to an exception: {e}")
 
-    @unittest.mock.patch('subprocess.Popen')
+    @unittest.mock.patch('utils.run_subprocess_command')
     @unittest.mock.patch('config_manager.load_config')
-    def test_watcher_download_with_subprocess_injection(self, mock_load_config, mock_subprocess_popen):
+    def test_watcher_download_with_subprocess_injection(self, mock_load_config, mock_run):
         # Mock the config to have a valid download_dir so it doesn't return early
         mock_load_config.return_value = {
             "settings": {
@@ -56,13 +56,14 @@ class TestYTDLPInjection(unittest.TestCase):
                 "auth_browser": "None"
             }
         }
+        mock_run.return_value = 0
 
         # Call the target method
         malicious_url = "-v"
         watcher.download_with_subprocess(malicious_url, "dummy_id")
 
-        # Get the arguments passed to subprocess.Popen
-        called_cmd = mock_subprocess_popen.call_args[0][0]
+        # Get the arguments passed to utils.run_subprocess_command
+        called_cmd = mock_run.call_args[0][0]
 
         # Assert that "--" is present immediately before the malicious URL
         self.assertIn("--", called_cmd, "The '--' argument separator is missing.")
@@ -72,9 +73,9 @@ class TestYTDLPInjection(unittest.TestCase):
 
         self.assertEqual(separator_idx, malicious_idx - 1, "'--' must immediately precede the URL to prevent argument injection.")
 
-    @unittest.mock.patch('subprocess.run')
+    @unittest.mock.patch('utils.run_subprocess_command')
     @unittest.mock.patch('config_manager.load_config')
-    def test_watcher_main_injection(self, mock_load_config, mock_subprocess_run):
+    def test_watcher_main_injection(self, mock_load_config, mock_run):
         # Mock config
         mock_load_config.return_value = {
             "auto_scheduler": {
@@ -85,10 +86,12 @@ class TestYTDLPInjection(unittest.TestCase):
             }
         }
 
-        # Mock subprocess to avoid real executions
-        mock_result = unittest.mock.MagicMock()
-        mock_result.stdout = "dummy_id\n"
-        mock_subprocess_run.return_value = mock_result
+        # Mock run_subprocess_command to return dummy_id for flat-playlist output
+        def side_effect(cmd, logger_callback=None, is_cancelled=None, cwd=None):
+            if logger_callback:
+                logger_callback("dummy_id\n")
+            return 0
+        mock_run.side_effect = side_effect
 
         # We need to ensure that the mocked id is not found in the test dir to prevent it from going into download_with_subprocess,
         # or we just mock os.path.exists
@@ -98,8 +101,8 @@ class TestYTDLPInjection(unittest.TestCase):
             # Call main
             watcher.main()
 
-            # The first subprocess.run is for getting the latest id
-            called_cmd = mock_subprocess_run.call_args[0][0]
+            # The first run_subprocess_command is for getting the latest id
+            called_cmd = mock_run.call_args_list[0][0][0]
 
             target_url = "https://www.youtube.com/channel/dummy_channel/streams"
 
@@ -110,6 +113,40 @@ class TestYTDLPInjection(unittest.TestCase):
             separator_idx = called_cmd.index("--")
 
             self.assertEqual(separator_idx, target_idx - 1, "'--' must immediately precede the target URL in watcher.main.")
+
+    @unittest.mock.patch('utils.run_subprocess_command')
+    @unittest.mock.patch('config_manager.load_config')
+    def test_watcher_main_handle_support(self, mock_load_config, mock_run):
+        # Mock config with YouTube handle
+        mock_load_config.return_value = {
+            "auto_scheduler": {
+                "platform": "YouTube"
+            },
+            "youtube": {
+                "channel_id": "@my_handle"
+            }
+        }
+
+        # Mock run_subprocess_command to return dummy_id for flat-playlist output
+        def side_effect(cmd, logger_callback=None, is_cancelled=None, cwd=None):
+            if logger_callback:
+                logger_callback("dummy_id\n")
+            return 0
+        mock_run.side_effect = side_effect
+
+        with unittest.mock.patch('os.path.exists', return_value=True), \
+             unittest.mock.patch('os.listdir', return_value=["dummy_id.mp4"]):
+
+            # Call main
+            watcher.main()
+
+            # The first run_subprocess_command is for getting the latest id
+            called_cmd = mock_run.call_args_list[0][0][0]
+
+            expected_url = "https://www.youtube.com/@my_handle/streams"
+
+            # Assert that target url resolves correctly to the handle url
+            self.assertIn(expected_url, called_cmd, "The handle URL was not correctly formatted.")
 
 if __name__ == '__main__':
     unittest.main()
