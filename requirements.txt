@@ -16,3 +16,4 @@ opencv-python-headless
 pytest
 pytest-cov
 windnd
+pyinstaller

@@ -10,6 +10,7 @@ dist/
 Output/
 logs/
 *.spec
+!ClipGen.spec
 
 # Personal / Local Data
 config.json
@@ -21,6 +22,7 @@ cookies.txt
 *.ini
 !pytest.ini
 *.iss
+!installer.iss
 *.zip
 *.log
 

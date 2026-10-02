@@ -93,31 +93,27 @@ python -m unittest discover -p "test_*.py"
 
 ## 📦 Compilation & Packaging (PyInstaller)
 
-To bundle the application into a standalone Windows executable (`.exe`):
+To bundle the application into a standalone Windows distribution with all companion dependencies:
 
-### 1. Install PyInstaller
-Ensure PyInstaller is installed in your virtual environment:
-```powershell
-pip install pyinstaller
-```
-
-### 2. Packaging CustomTkinter Assets
-CustomTkinter relies on assets (themes, icons) that PyInstaller does not automatically detect. You must explicitly include them.
-Locate the `customtkinter` directory in your virtual environment:
-* On Windows: `.venv\Lib\site-packages\customtkinter`
-
-### 3. Build Command
-Run PyInstaller with the required settings:
+### 1. Automated Release Packaging
+Run the automated packaging script inside your virtual environment:
 
 ```powershell
-pyinstaller --noconsole --onefile --icon=app_icon.ico --name="jBahrs-Clip-Generator" --add-data ".venv/Lib/site-packages/customtkinter;customtkinter/" app.py
+python package_release.py --version v2.0.0
 ```
 
-* `--noconsole`: Hides the default command-prompt window behind the GUI.
-* `--onefile`: Combines all Python files and standard libraries into a single file.
-* `--add-data`: Injects customtkinter files so UI styles render properly.
+This automated script:
+1. Compiles the application using the [`ClipGen.spec`](file:///D:/Dev%20Projects/Clipgen/jBahrs-Clip-Generator/ClipGen.spec) PyInstaller specification.
+2. Injects the companion binary dependencies (`ffmpeg.exe`, `ffprobe.exe`, `yt-dlp.exe`, `deno.exe`) and assets into the output bundle.
+3. Generates complete, portable release archives in `dist/`:
+   - `jBahrs-Clip-Generator-v2.0.0-Windows.zip` (full portable standalone application)
+   - `jBahrs-Clip-Generator-v2.0.0-Dependencies-Windows.zip` (standalone companion binaries)
 
-The generated executable will be placed in the `dist/` directory.
+### 2. Building Setup Installer (Inno Setup)
+To build a Windows `Setup.exe` installer, compile the provided Inno Setup script with the Inno Setup Compiler:
+```powershell
+iscc installer.iss
+```
 
-> [!TIP]
-> Do not bundle `ffmpeg.exe` or `yt-dlp.exe` inside the installer. By keeping them separate and letting the application auto-download them on startup, you reduce the initial installer size by over 160 MB!
+### 3. Automated GitHub Actions Releases
+Whenever a git release tag (`v*`) is pushed to GitHub, `.github/workflows/release.yml` automatically compiles the application, runs tests, and publishes the release assets directly to GitHub Releases.
