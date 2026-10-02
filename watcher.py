@@ -1,10 +1,21 @@
 import os
+import shutil
 import subprocess
 import config_manager # type: ignore
 import editor # type: ignore
 import utils
 
 YTDLP_PATH = "yt-dlp.exe" if os.name == 'nt' else "yt-dlp"
+
+def get_ytdlp_js_runtime_args() -> list:
+    """Auto-detects available JavaScript runtimes on the system for YouTube challenge solving."""
+    for runtime in ["node", "deno", "bun", "quickjs"]:
+        if shutil.which(runtime):
+            return ["--js-runtimes", runtime]
+    for node_path in [r"C:\Program Files\nodejs\node.exe", r"C:\Program Files (x86)\nodejs\node.exe"]:
+        if os.path.exists(node_path):
+            return ["--js-runtimes", f"node:{node_path}"]
+    return []
 
 def download_with_subprocess(url, video_id, logger_callback=None, force_manual=False, is_cancelled=None):
     config = config_manager.load_config()
@@ -21,13 +32,12 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
     video_type = config.get("auto_scheduler", {}).get("video_type", "Livestreams Only")
     quality_pref = config.get("settings", {}).get("download_quality", "Best")
 
-    # Fixed variable name: changed from format_str to format_string
+    format_string = "bestvideo+bestaudio/best"
+    sort_args = []
     if quality_pref == "1080p":
-        format_string = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+        sort_args = ["-S", "res:1080"]
     elif quality_pref == "720p":
-        format_string = "bestvideo[height<=720]+bestaudio/best[height<=720]"
-    else:
-        format_string = "bestvideo+bestaudio/best"
+        sort_args = ["-S", "res:720"]
 
     output_template = os.path.join(download_dir, f"%(title)s_%(id)s.%(ext)s")
 
@@ -39,8 +49,18 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
         YTDLP_PATH,
         "-f", format_string,
         "--merge-output-format", "mp4",
-        "-o", output_template
+        "-o", output_template,
+        "--retries", "10",
+        "--fragment-retries", "10",
+        "--retry-sleep", "exp=1:20"
     ]
+    if sort_args:
+        cmd.extend(sort_args)
+
+    # Dynamically inject available JavaScript runtimes to solve YouTube n-sig challenges
+    js_args = get_ytdlp_js_runtime_args()
+    if js_args:
+        cmd.extend(js_args)
 
     # Dynamically inject the cookies flag ONLY if they selected a browser
     if auth_browser and auth_browser != "None":
@@ -81,37 +101,49 @@ def download_with_subprocess(url, video_id, logger_callback=None, force_manual=F
             parts = line.split('"')
             if len(parts) >= 3:
                 downloaded_file_path = parts[1]
+        elif "Destination:" in line:
+            parts = line.split("Destination:", 1)
+            if len(parts) >= 2:
+                candidate = parts[1].strip()
+                if candidate and not candidate.endswith(".part"):
+                    downloaded_file_path = candidate
 
     try:
         returncode = utils.run_subprocess_command(
             cmd,
             logger_callback=log_progress,
-            is_cancelled=is_cancelled,
-            cwd=download_dir
+            is_cancelled=is_cancelled
         )
 
-        if returncode == 0:
+        # Verify the console string actually points to a real file
+        if downloaded_file_path and not os.path.exists(downloaded_file_path):
+            downloaded_file_path = None
+
+        # Fallback: Safely scan the folder for the video ID
+        if not downloaded_file_path and os.path.exists(download_dir):
+            try:
+                for f in os.listdir(download_dir):
+                    if video_id in f and f.endswith(".mp4") and not f.endswith(".part"):
+                        cand = os.path.join(download_dir, f)
+                        if os.path.exists(cand):
+                            downloaded_file_path = cand
+                            break
+            except Exception:
+                pass
+
+        # A download is successful if returncode is 0 and we found a path, OR if the video file exists on disk
+        if (returncode == 0 or downloaded_file_path) and downloaded_file_path and os.path.exists(downloaded_file_path):
             if logger_callback: 
                 logger_callback("✅ Download completed successfully!")
-            
-            # Verify the console string actually points to a real file
-            if downloaded_file_path and not os.path.exists(downloaded_file_path):
-                downloaded_file_path = None
-            
-            # Fallback: Safely scan the folder for the video ID
-            if not downloaded_file_path and os.path.exists(download_dir):
-                for f in os.listdir(download_dir):
-                    if video_id in f and f.endswith(".mp4"):
-                        downloaded_file_path = os.path.join(download_dir, f)
-                        break
-
             return downloaded_file_path
         else:
-            # THE FIX: Print the actual error message instead of just "Return Code 1"
+            # Print the actual error message
             if logger_callback:
                 err_strings = [str(x) for x in error_log[-3:] if x is not None]
                 last_errors = "\n".join(err_strings)
                 logger_callback(f"❌ Download failed! yt-dlp says:\n{last_errors}")
+                if "403" in last_errors or "Forbidden" in last_errors:
+                    logger_callback("💡 Tip: YouTube is throttling anonymous video data. In Settings, select your browser under 'Auth Browser (Cookies)' (e.g. Chrome/Edge/Firefox) to bypass YouTube rate limits.")
             return None
 
     except Exception as e:

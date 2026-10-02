@@ -38,7 +38,10 @@ class TestWatcherDownloadWithSubprocess(unittest.TestCase):
         called_cmd = mock_run.call_args[0][0]
         self.assertIn("-f", called_cmd)
         f_index = called_cmd.index("-f")
-        self.assertEqual(called_cmd[f_index + 1], "bestvideo[height<=1080]+bestaudio/best[height<=1080]")
+        self.assertEqual(called_cmd[f_index + 1], "bestvideo+bestaudio/best")
+        self.assertIn("-S", called_cmd)
+        s_index = called_cmd.index("-S")
+        self.assertEqual(called_cmd[s_index + 1], "res:1080")
 
     @patch('os.path.exists')
     @patch('os.makedirs')

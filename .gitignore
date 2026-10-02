@@ -17,7 +17,9 @@ cookies.txt
 *.mp4
 *.mp3
 *.txt
-*.ini   
+!requirements.txt
+*.ini
+!pytest.ini
 *.iss
 *.zip
 *.log
@@ -32,3 +34,9 @@ config.json
 app_crash_log.txt
 logs/auto_scheduler.log
 config/gemini.md
+
+# Coverage & Test Artifacts
+.coverage
+coverage.xml
+.pytest_cache/
+.agents/

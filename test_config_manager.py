@@ -1,117 +1,144 @@
-import sys
 import os
 import json
+import stat
+import shutil
+import tempfile
+import subprocess
 import unittest
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, mock_open
 
-from config_manager import get_default_config, save_config, load_config, CONFIG_FILE, OLD_LOCAL_CONFIG
+import config_manager
+from config_manager import get_default_config, save_config, load_config, AppConfig
 
-def test_get_default_config():
-    config = get_default_config()
 
-    # Assert that the returned object is a dictionary
-    assert isinstance(config, dict), "config should be a dictionary"
+class TestConfigDefaultsAndTypes(unittest.TestCase):
+    def test_get_default_config_structure(self):
+        config = get_default_config()
 
-    # Expected top-level keys
-    expected_keys = [
-        "youtube", "twitch", "openai", "anthropic", "xai",
-        "google", "integrations", "settings", "prompts", "auto_scheduler"
-    ]
-    for key in expected_keys:
-        assert key in config, f"Missing key '{key}' in default config"
+        self.assertIsInstance(config, AppConfig)
+        self.assertIsInstance(config.to_dict(), dict)
 
-    # Assert specific default values inside these nested dictionaries
-    assert config["youtube"]["channel_id"] == "", "Default youtube channel_id should be empty"
-    assert config["twitch"]["username"] == "", "Default twitch username should be empty"
+        expected_keys = [
+            "youtube", "twitch", "openai", "anthropic", "xai",
+            "google", "integrations", "settings", "prompts", "auto_scheduler"
+        ]
+        config_dict = config.to_dict()
+        for key in expected_keys:
+            self.assertIn(key, config_dict, f"Missing key '{key}' in default config")
 
-    assert config["openai"]["api_key"] == "", "Default openai api_key should be empty"
-    assert config["openai"]["chat_model"] == "gpt-4o", "Default openai chat_model should be 'gpt-4o'"
-    assert config["openai"]["whisper_model"] == "base", "Default openai whisper_model should be 'base'"
-    assert config["openai"]["whisper_language"] == "Auto-Detect", "Default openai whisper_language should be 'Auto-Detect'"
-    assert config["openai"]["base_url"] == "", "Default openai base_url should be empty"
+        # Assert default values
+        self.assertEqual(config.youtube.channel_id, "")
+        self.assertEqual(config.twitch.username, "")
+        self.assertEqual(config.openai.api_key, "")
+        self.assertEqual(config.openai.chat_model, "gpt-4o")
+        self.assertEqual(config.openai.whisper_model, "base")
+        self.assertEqual(config.openai.whisper_language, "Auto-Detect")
+        self.assertEqual(config.openai.base_url, "")
 
-    assert config["anthropic"]["api_key"] == "", "Default anthropic api_key should be empty"
-    assert config["xai"]["api_key"] == "", "Default xai api_key should be empty"
-    assert config["google"]["api_key"] == "", "Default google api_key should be empty"
+        self.assertEqual(config.anthropic.api_key, "")
+        self.assertEqual(config.xai.api_key, "")
+        self.assertEqual(config.google.api_key, "")
 
-    assert config["settings"]["download_quality"] == "Best", "Default download_quality should be 'Best'"
+        self.assertEqual(config.settings.download_quality, "Best")
+        self.assertEqual(config.prompts.active_profile, "Omni-Genre Broad Net")
+        self.assertEqual(config.auto_scheduler.platform, "YouTube")
 
-    assert config["prompts"]["active_profile"] == "Omni-Genre Broad Net", "Default active_profile should be 'Omni-Genre Broad Net'"
 
-    assert config["auto_scheduler"]["platform"] == "YouTube", "Default auto_scheduler platform should be 'YouTube'"
+class TestConfigPersistenceAndMigration(unittest.TestCase):
+    def setUp(self):
+        self.test_dir = tempfile.TemporaryDirectory()
+        self.test_config_file = os.path.join(self.test_dir.name, "sandbox_config.json")
+        self.test_old_config = os.path.join(self.test_dir.name, "sandbox_old_config.json")
 
-    print("All tests for get_default_config passed!")
+        self.patch_config_file = patch('config_manager.CONFIG_FILE', self.test_config_file)
+        self.patch_old_config = patch('config_manager.OLD_LOCAL_CONFIG', self.test_old_config)
+        self.patch_config_file.start()
+        self.patch_old_config.start()
 
-def test_save_config_permissions():
-    config = get_default_config()
+    def tearDown(self):
+        self.patch_config_file.stop()
+        self.patch_old_config.stop()
+        self.test_dir.cleanup()
 
-    # Save the config
-    save_config(config)
+    def test_save_config_creates_file_in_sandbox(self):
+        config = get_default_config()
+        config.openai.api_key = "test-sandbox-key"
 
-    # Check that the file exists
-    assert os.path.exists(CONFIG_FILE), "Config file was not created"
+        save_config(config)
 
-    # Check file permissions
-    file_stat = os.stat(CONFIG_FILE)
-    mode = file_stat.st_mode
+        self.assertTrue(os.path.exists(self.test_config_file), "Config file was not created in sandbox")
+        with open(self.test_config_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        self.assertEqual(data["openai"]["api_key"], "test-sandbox-key")
 
-    # Mask out everything except the owner permissions
-    owner_permissions = mode & 0o777
+        # Test file permissions on POSIX
+        if os.name != 'nt':
+            file_stat = os.stat(self.test_config_file)
+            owner_permissions = file_stat.st_mode & 0o777
+            self.assertEqual(owner_permissions, 0o600)
 
-    # The permissions should be 0o600 (-rw-------)
-    if os.name != 'nt':
-        assert owner_permissions == 0o600, f"Expected permissions 0o600, but got {oct(owner_permissions)}"
-
-    print("All tests for test_save_config_permissions passed!")
-
-def test_load_config_no_file():
-    with patch('os.path.exists', return_value=False):
+    def test_load_config_no_file_returns_default(self):
+        self.assertFalse(os.path.exists(self.test_config_file))
         config = load_config()
-        assert config == get_default_config(), "Should return default config when no file exists"
-    print("Test test_load_config_no_file passed!")
+        self.assertEqual(config.to_dict(), get_default_config().to_dict())
 
-def test_load_config_migration():
-    def mock_exists(path):
-        if path == OLD_LOCAL_CONFIG:
-            return True
-        if path == CONFIG_FILE:
-            return False
-        return False
+    def test_load_config_migration(self):
+        # Create old config in sandbox
+        old_data = {"openai": {"api_key": "migrated-key"}}
+        with open(self.test_old_config, 'w', encoding='utf-8') as f:
+            json.dump(old_data, f)
 
-    with patch('os.path.exists', side_effect=mock_exists), \
-         patch('shutil.move') as mock_move, \
-         patch('builtins.open', mock_open(read_data='{}')):
+        self.assertTrue(os.path.exists(self.test_old_config))
+        self.assertFalse(os.path.exists(self.test_config_file))
+
         config = load_config()
-        mock_move.assert_called_once_with(OLD_LOCAL_CONFIG, CONFIG_FILE)
-        assert config["openai"]["whisper_language"] == "Auto-Detect", "Migrated config should default whisper_language to 'Auto-Detect'"
-    print("Test test_load_config_migration passed!")
 
-def test_load_config_migration_exception():
-    def mock_exists(path):
-        if path == OLD_LOCAL_CONFIG:
-            return True
-        if path == CONFIG_FILE:
-            return False
-        return False
+        self.assertEqual(config.openai.api_key, "migrated-key")
+        self.assertEqual(config.openai.whisper_language, "Auto-Detect")
+        self.assertTrue(os.path.exists(self.test_config_file))
+        self.assertFalse(os.path.exists(self.test_old_config))
 
-    with patch('os.path.exists', side_effect=mock_exists), \
-         patch('shutil.move', side_effect=Exception("Migration Failed")) as mock_move, \
-         patch('builtins.print') as mock_print, \
-         patch('builtins.open', mock_open(read_data='{}')):
-        config = load_config()
-        mock_move.assert_called_once_with(OLD_LOCAL_CONFIG, CONFIG_FILE)
-        mock_print.assert_called_with("Failed to migrate old config file: Migration Failed")
-    print("Test test_load_config_migration_exception passed!")
+    def test_load_config_migration_exception(self):
+        with open(self.test_old_config, 'w', encoding='utf-8') as f:
+            f.write("{}")
 
-def test_load_config_invalid_json():
-    with patch('os.path.exists', return_value=True), \
-         patch('builtins.open', mock_open(read_data='{invalid_json: true}')), \
-         patch('builtins.print') as mock_print:
-        config = load_config()
-        assert config == get_default_config(), "Should return default config on invalid JSON"
-        mock_print.assert_called_once()
-        assert "Failed to decode config file:" in mock_print.call_args[0][0]
-    print("Test test_load_config_invalid_json passed!")
+        with patch('shutil.move', side_effect=Exception("Disk Full")), \
+             patch('builtins.print') as mock_print:
+            config = load_config()
+            mock_print.assert_called_with("Failed to migrate old config file: Disk Full")
+            self.assertEqual(config.to_dict(), get_default_config().to_dict())
+
+    def test_load_config_invalid_json(self):
+        with open(self.test_config_file, 'w', encoding='utf-8') as f:
+            f.write("{invalid_json: true}")
+
+        with patch('builtins.print') as mock_print:
+            config = load_config()
+            self.assertEqual(config.to_dict(), get_default_config().to_dict())
+            mock_print.assert_called_once()
+            self.assertIn("Failed to decode config file:", mock_print.call_args[0][0])
+
+    def test_custom_config_path_support(self):
+        custom_path = os.path.join(self.test_dir.name, "custom_subdir", "custom.json")
+        config = get_default_config()
+        config.settings.download_quality = "720p"
+
+        save_config(config, config_path=custom_path)
+        self.assertTrue(os.path.exists(custom_path))
+
+        loaded = load_config(config_path=custom_path)
+        self.assertEqual(loaded.settings.download_quality, "720p")
+
+    @patch('subprocess.run')
+    def test_secure_file_permissions_windows_calls_icacls(self, mock_run):
+        with patch('os.name', 'nt'), patch.dict(os.environ, {'USERNAME': 'testuser'}):
+            config_manager.secure_file_permissions("dummy_path.json")
+            mock_run.assert_called_once_with(
+                ["icacls", "dummy_path.json", "/inheritance:r", "/grant:r", "testuser:(R,W)"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False
+            )
 
 
 class TestAppConfigDataclass(unittest.TestCase):
@@ -145,15 +172,6 @@ class TestAppConfigDataclass(unittest.TestCase):
         deserialized = config.from_dict(serialized)
         self.assertEqual(deserialized.openai.api_key, "test-key")
 
-if __name__ == "__main__":
-    import unittest
-    # Run the module functions
-    test_get_default_config()
-    test_save_config_permissions()
-    test_load_config_no_file()
-    test_load_config_migration()
-    test_load_config_migration_exception()
-    test_load_config_invalid_json()
-    # Run the TestCase class
-    unittest.main()
 
+if __name__ == "__main__":
+    unittest.main()

@@ -2,6 +2,7 @@ import os
 import stat
 import json
 import shutil
+import subprocess
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Optional
 
@@ -54,6 +55,10 @@ class SettingsConfig:
     audio_downmix: bool = True
     audio_peak_detection: bool = True
     combat_detection: bool = True
+    burn_subtitles: bool = False
+    subtitle_style: str = "Viral Yellow Highlight"
+    subtitle_position: str = "Bottom Third"
+    subtitle_font_size: int = 24
 
 @dataclass
 class PromptsConfig:
@@ -104,6 +109,27 @@ class AutoSchedulerConfig:
     auto_prompt_profile: str = "Omni-Genre Broad Net"
 
 
+@dataclass
+class SocialConfig:
+    youtube: Dict[str, Any] = field(default_factory=lambda: {
+        "enabled": False,
+        "client_id": "",
+        "client_secret": "",
+        "refresh_token": ""
+    })
+    tiktok: Dict[str, Any] = field(default_factory=lambda: {
+        "enabled": False,
+        "client_key": "",
+        "client_secret": "",
+        "access_token": ""
+    })
+    instagram: Dict[str, Any] = field(default_factory=lambda: {
+        "enabled": False,
+        "access_token": "",
+        "user_id": ""
+    })
+
+
 class DictLikeSection(dict):
     def __init__(self, data_cls_inst: Any) -> None:
         self.__dict__['_dataclass'] = data_cls_inst
@@ -146,7 +172,8 @@ class AppConfig(dict):
     def __init__(self, youtube: YoutubeConfig, twitch: TwitchConfig, openai: OpenAIConfig, 
                  anthropic: AnthropicConfig, xai: XAIConfig, google: GoogleConfig, 
                  integrations: IntegrationsConfig, settings: SettingsConfig, 
-                 prompts: PromptsConfig, auto_scheduler: AutoSchedulerConfig) -> None:
+                 prompts: PromptsConfig, auto_scheduler: AutoSchedulerConfig,
+                 social: Optional[SocialConfig] = None) -> None:
         self.youtube = DictLikeSection(youtube)
         self.twitch = DictLikeSection(twitch)
         self.openai = DictLikeSection(openai)
@@ -157,6 +184,7 @@ class AppConfig(dict):
         self.settings = DictLikeSection(settings)
         self.prompts = DictLikeSection(prompts)
         self.auto_scheduler = DictLikeSection(auto_scheduler)
+        self.social = DictLikeSection(social if social is not None else SocialConfig())
         
         super().__init__({
             "youtube": self.youtube,
@@ -169,6 +197,7 @@ class AppConfig(dict):
             "settings": self.settings,
             "prompts": self.prompts,
             "auto_scheduler": self.auto_scheduler,
+            "social": self.social,
         })
         
     def to_dict(self) -> Dict[str, Any]:
@@ -183,6 +212,7 @@ class AppConfig(dict):
             "settings": asdict(self.settings._dataclass),
             "prompts": asdict(self.prompts._dataclass),
             "auto_scheduler": asdict(self.auto_scheduler._dataclass),
+            "social": asdict(self.social._dataclass),
         }
 
     @classmethod
@@ -197,6 +227,7 @@ class AppConfig(dict):
         settings_data = data.get("settings", {})
         prompts_data = data.get("prompts", {})
         auto_scheduler_data = data.get("auto_scheduler", {})
+        social_data = data.get("social", {})
 
         return cls(
             youtube=YoutubeConfig(**{k: v for k, v in youtube_data.items() if k in YoutubeConfig.__dataclass_fields__}),
@@ -211,7 +242,8 @@ class AppConfig(dict):
                 active_profile=prompts_data.get("active_profile", "Omni-Genre Broad Net"),
                 profiles=prompts_data.get("profiles", get_raw_default_dict()["prompts"]["profiles"])
             ),
-            auto_scheduler=AutoSchedulerConfig(**{k: v for k, v in auto_scheduler_data.items() if k in AutoSchedulerConfig.__dataclass_fields__})
+            auto_scheduler=AutoSchedulerConfig(**{k: v for k, v in auto_scheduler_data.items() if k in AutoSchedulerConfig.__dataclass_fields__}),
+            social=SocialConfig(**{k: v for k, v in social_data.items() if k in SocialConfig.__dataclass_fields__})
         )
 
 
@@ -269,7 +301,11 @@ def get_raw_default_dict() -> Dict[str, Any]:
             "hardware_encoding": False,
             "audio_downmix": True,
             "audio_peak_detection": True,
-            "combat_detection": True
+            "combat_detection": True,
+            "burn_subtitles": False,
+            "subtitle_style": "Viral Yellow Highlight",
+            "subtitle_position": "Bottom Third",
+            "subtitle_font_size": 24
         },
         "prompts": {
             "active_profile": "Omni-Genre Broad Net", 
@@ -316,21 +352,41 @@ def get_raw_default_dict() -> Dict[str, Any]:
             "lookback_days": "7 Days",
             "check_interval": "Every 4 Hours",
             "auto_prompt_profile": "Omni-Genre Broad Net"
+        },
+        "social": {
+            "youtube": {
+                "enabled": False,
+                "client_id": "",
+                "client_secret": "",
+                "refresh_token": ""
+            },
+            "tiktok": {
+                "enabled": False,
+                "client_key": "",
+                "client_secret": "",
+                "access_token": ""
+            },
+            "instagram": {
+                "enabled": False,
+                "access_token": "",
+                "user_id": ""
+            }
         }
     }
 
 def get_default_config() -> AppConfig:
     return AppConfig.from_dict(get_raw_default_dict())
 
-def load_config() -> AppConfig:
-    if os.path.exists(OLD_LOCAL_CONFIG) and not os.path.exists(CONFIG_FILE):
+def load_config(config_path: Optional[str] = None) -> AppConfig:
+    target_file = config_path or CONFIG_FILE
+    if not config_path and os.path.exists(OLD_LOCAL_CONFIG) and not os.path.exists(target_file):
         try:
-            shutil.move(OLD_LOCAL_CONFIG, CONFIG_FILE)
+            shutil.move(OLD_LOCAL_CONFIG, target_file)
         except Exception as e:
             print(f"Failed to migrate old config file: {e}")
 
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'r') as f:
+    if os.path.exists(target_file):
+        with open(target_file, 'r', encoding='utf-8') as f:
             try:
                 cfg = json.load(f)
             except json.JSONDecodeError as e:
@@ -351,6 +407,7 @@ def load_config() -> AppConfig:
             cfg.setdefault("anthropic", {"api_key": ""})
             cfg.setdefault("xai", {"api_key": ""})
             cfg.setdefault("integrations", {"discord_webhook": ""})
+            cfg.setdefault("social", get_raw_default_dict()["social"])
             
             # MIGRATION UPDATE: Force update the default Omni-Genre prompt if they have the old version
             prompts = cfg.setdefault("prompts", {})
@@ -370,20 +427,42 @@ def load_config() -> AppConfig:
     # Default Config
     return get_default_config()
 
-def save_config(config: Any) -> None:
+def secure_file_permissions(file_path: str) -> None:
+    """Enforces owner-only permissions on Windows NTFS via icacls and POSIX via chmod."""
+    if os.name == 'nt':
+        try:
+            username = os.environ.get('USERNAME')
+            if username:
+                subprocess.run(
+                    ["icacls", file_path, "/inheritance:r", "/grant:r", f"{username}:(R,W)"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False
+                )
+        except Exception:
+            pass
+    else:
+        try:
+            os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
+        except OSError:
+            pass
+
+def save_config(config: Any, config_path: Optional[str] = None) -> None:
+    target_file = config_path or CONFIG_FILE
+    target_dir = os.path.dirname(target_file)
+    if target_dir and not os.path.exists(target_dir):
+        os.makedirs(target_dir, exist_ok=True)
+
     # Open file descriptor with restrictive permissions
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     mode = stat.S_IRUSR | stat.S_IWUSR
 
-    fd = os.open(CONFIG_FILE, flags, mode)
-    with os.fdopen(fd, 'w') as f:
+    fd = os.open(target_file, flags, mode)
+    with os.fdopen(fd, 'w', encoding='utf-8') as f:
         if hasattr(config, "to_dict"):
             json.dump(config.to_dict(), f, indent=4)
         else:
             json.dump(config, f, indent=4)
 
-    # Ensure existing files also have restricted permissions
-    try:
-        os.chmod(CONFIG_FILE, mode)
-    except OSError:
-        pass
+    # Ensure existing files have restricted permissions
+    secure_file_permissions(target_file)

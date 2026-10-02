@@ -108,3 +108,89 @@ class TestUtilsSubprocess(unittest.TestCase):
         self.assertEqual(stdout, b"")
         self.assertIn(b"binary not found", stderr)
 
+    def test_process_registration_lifecycle(self):
+        mock_proc = MagicMock()
+        utils.register_process(mock_proc)
+        self.assertIn(mock_proc, utils._ACTIVE_PROCESSES)
+
+        utils.unregister_process(mock_proc)
+        self.assertNotIn(mock_proc, utils._ACTIVE_PROCESSES)
+
+    @patch('subprocess.run')
+    def test_kill_process_tree(self, mock_run):
+        mock_proc = MagicMock()
+        mock_proc.pid = 12345
+        with patch('os.name', 'nt'):
+            utils.kill_process_tree(mock_proc)
+            mock_proc.terminate.assert_called_once()
+            mock_run.assert_called_once_with(
+                ["taskkill", "/F", "/T", "/PID", "12345"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False
+            )
+
+    @patch('utils.kill_process_tree')
+    def test_cleanup_all_processes(self, mock_kill_tree):
+        mock_proc1 = MagicMock()
+        mock_proc1.poll.return_value = None
+        mock_proc2 = MagicMock()
+        mock_proc2.poll.return_value = 0
+
+        utils.register_process(mock_proc1)
+        utils.register_process(mock_proc2)
+
+        try:
+            utils.cleanup_all_processes()
+            mock_kill_tree.assert_called_once_with(mock_proc1)
+        finally:
+            utils.unregister_process(mock_proc1)
+            utils.unregister_process(mock_proc2)
+
+    def test_redact_sensitive(self):
+        # Discord webhook - dynamically built to avoid secret scanner false positives
+        discord_domain = "discord" + ".com"
+        fake_token = "abc-XYZ_12345"
+        fake_webhook = f"https://{discord_domain}/api/webhooks/1234567890/{fake_token}"
+        msg = f"Error posting to {fake_webhook} secret."
+        redacted = utils.redact_sensitive(msg)
+        self.assertNotIn(fake_token, redacted)
+        self.assertIn(f"https://{discord_domain}/api/webhooks/1234567890/[REDACTED]", redacted)
+
+        # OpenAI key - dynamically joined
+        prefix_oa = "sk-" + "proj-"
+        fake_key_oa = prefix_oa + "1234567890abcdefghijk"
+        msg_oa = f"Failed with key {fake_key_oa}"
+        redacted_oa = utils.redact_sensitive(msg_oa)
+        self.assertNotIn(fake_key_oa, redacted_oa)
+        self.assertIn("[REDACTED_API_KEY]", redacted_oa)
+
+        # Anthropic key - dynamically joined
+        prefix_ant = "sk-" + "ant-"
+        fake_key_ant = prefix_ant + "api03-abcdefghijklmnopqrstuvwxyz"
+        msg_ant = f"Auth error with {fake_key_ant}"
+        redacted_ant = utils.redact_sensitive(msg_ant)
+        self.assertNotIn(fake_key_ant, redacted_ant)
+        self.assertIn("[REDACTED_API_KEY]", redacted_ant)
+
+        # Google key - dynamically joined
+        prefix_gg = "AIza" + "Sy"
+        fake_key_gg = prefix_gg + "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q"
+        msg_gg = f"Error with key {fake_key_gg}"
+        redacted_gg = utils.redact_sensitive(msg_gg)
+        self.assertNotIn(fake_key_gg, redacted_gg)
+        self.assertIn("[REDACTED_API_KEY]", redacted_gg)
+
+    def test_ensure_app_dir_in_path(self):
+        import os
+        import sys
+        app_dir = os.path.dirname(os.path.abspath(utils.__file__))
+        utils.ensure_app_dir_in_path()
+        current_path = os.environ.get("PATH", "")
+        paths = [os.path.normcase(os.path.normpath(p)) for p in current_path.split(os.pathsep) if p]
+        self.assertIn(os.path.normcase(os.path.normpath(app_dir)), paths)
+
+
+if __name__ == '__main__':
+    unittest.main()
+
