@@ -1142,7 +1142,122 @@ def _transcribe_audio_to_segments(file_path, config, logger, is_cancelled):
 
     return segments
 
-def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
+def _partition_segments_into_windows(segments: list, window_size: float = 1500.0, overlap: float = 120.0) -> list:
+    """Partitions a list of transcription segments into overlapping temporal windows.
+    Returns a list of tuples: (window_start_sec, window_end_sec, list_of_segments).
+    For short videos (<=30 mins and <=400 segments), returns a single window.
+    """
+    if not segments:
+        return []
+
+    min_time = min(s.get("start", 0.0) for s in segments)
+    max_time = max(s.get("end", 0.0) for s in segments)
+    total_duration = max_time - min_time
+
+    # If video is 30 minutes or less (1800s) and segment count <= 400, process in a single window
+    if total_duration <= 1800.0 and len(segments) <= 400:
+        return [(min_time, max_time, segments)]
+
+    step = max(300.0, window_size - overlap)
+    windows = []
+    w_start = min_time
+
+    while w_start < max_time:
+        w_end = min(w_start + window_size, max_time)
+        win_segs = [s for s in segments if s.get("start", 0.0) < w_end and s.get("end", 0.0) > w_start]
+        if win_segs:
+            windows.append((w_start, w_end, win_segs))
+        if w_end >= max_time:
+            break
+        w_start += step
+
+    # If the trailing window is very short (< 300s) and we have more than 1 window,
+    # merge it into the previous window to avoid a redundant tiny LLM call
+    if len(windows) > 1:
+        last_start, last_end, last_segs = windows[-1]
+        if (last_end - last_start) < 300.0:
+            prev_start, prev_end, prev_segs = windows[-2]
+            merged_dict = {}
+            for s in prev_segs + last_segs:
+                merged_dict[id(s)] = s
+            merged_segs = sorted(merged_dict.values(), key=lambda s: s.get("start", 0.0))
+            windows[-2] = (prev_start, last_end, merged_segs)
+            windows.pop()
+
+    return windows
+
+def deduplicate_clips(clips: list, iou_threshold: float = 0.35, proximity_threshold: float = 15.0, logger=None) -> list:
+    """Deduplicates overlapping or near-identical clips extracted across temporal windows.
+    When two clips overlap significantly or start within proximity threshold with overlap,
+    keeps the clip with the higher virality score.
+    """
+    if not clips or len(clips) <= 1:
+        return clips
+
+    def _parse_time(val):
+        return parse_timestamp_to_seconds(val)
+
+    def _parse_score(val):
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return 0.0
+
+    # Sort clips chronologically by start_time
+    sorted_clips = sorted(clips, key=lambda c: _parse_time(c.get("start_time")) or 0.0)
+
+    deduped = []
+    for candidate in sorted_clips:
+        c_start = _parse_time(candidate.get("start_time"))
+        c_end = _parse_time(candidate.get("end_time"))
+        c_score = _parse_score(candidate.get("virality_score"))
+
+        if c_start is None or c_end is None or c_end <= c_start:
+            deduped.append(candidate)
+            continue
+
+        c_dur = c_end - c_start
+        matched_idx = None
+
+        for idx, existing in enumerate(deduped):
+            e_start = _parse_time(existing.get("start_time"))
+            e_end = _parse_time(existing.get("end_time"))
+            if e_start is None or e_end is None or e_end <= e_start:
+                continue
+
+            e_dur = e_end - e_start
+            overlap_start = max(c_start, e_start)
+            overlap_end = min(c_end, e_end)
+            overlap_dur = max(0.0, overlap_end - overlap_start)
+
+            union_dur = (c_dur + e_dur) - overlap_dur
+            iou = overlap_dur / max(1e-6, union_dur)
+            start_diff = abs(c_start - e_start)
+
+            # De-duplicate if IoU >= iou_threshold, or if starts are within proximity_threshold and there is >= 8s overlap
+            if iou >= iou_threshold or (start_diff <= proximity_threshold and overlap_dur >= 8.0):
+                matched_idx = idx
+                break
+
+        if matched_idx is not None:
+            existing = deduped[matched_idx]
+            e_score = _parse_score(existing.get("virality_score"))
+            if c_score > e_score:
+                if logger:
+                    logger(f"✂️ Deduplicating overlap near {c_start:.1f}s: Replacing score {e_score} with score {c_score} clip.")
+                deduped[matched_idx] = candidate
+            else:
+                if logger:
+                    logger(f"✂️ Deduplicating overlap near {c_start:.1f}s: Retaining existing score {e_score} over candidate {c_score}.")
+        else:
+            deduped.append(candidate)
+
+    return deduped
+
+def _query_llm_for_clips(transcript_chunk: str, config: dict, chat_model: str, prompt_text: str,
+                         logger=None, is_single_window: bool = True, window_desc: str = "",
+                         segment_count: int = 0) -> list:
+    """Executes a single LLM API query (Gemini, Anthropic, or OpenAI/Custom) on a transcript chunk."""
     chat_model = chat_model.replace(" (Deprecated)", "").strip()
     openai_key = config.get("openai", {}).get("api_key", "")
     openai_base_url = config.get("openai", {}).get("base_url", "")
@@ -1162,32 +1277,43 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
     elif is_deepseek_model and not openai_base_url:
         openai_base_url = "https://api.deepseek.com"
 
-    all_clips = []
-    
-    full_transcript = "".join(
-        f"[{seg['start']:.1f}s - {seg['end']:.1f}s] {seg['text'].strip()}\n"
-        for seg in segments
-    )
+    clips = []
 
-    # Estimate token count based on a common heuristic (1 token ~= 4 chars or ~0.75 words)
-    # Using roughly 1.3 tokens per word as a general English baseline.
-    word_count = len(full_transcript.split())
-    estimated_tokens = int(word_count * 1.3)
-    if logger:
-        logger(f"📊 Extracted approx {estimated_tokens:,} tokens ({word_count:,} words) for the AI model's context window.")
+    if is_single_window:
+        gemini_prompt = f"Analyze this entire gaming transcript. The timestamps for each line are in brackets. Return strictly JSON.\n\n{transcript_chunk}"
+        anthropic_prompt = f"Analyze this entire gaming transcript. Return strictly valid JSON containing a 'clips' array with 'start_time', 'end_time', 'virality_score', and 'reasoning'. Do not include markdown formatting.\n\n{transcript_chunk}"
+        openai_prompt = f"Analyze this entire gaming transcript. Return strictly JSON.\n\n{transcript_chunk}"
+    else:
+        gemini_prompt = (
+            f"Analyze this gaming transcript window {window_desc}. The timestamps for each line are in brackets. "
+            f"Extract all entertaining, funny, intense, or clutch moments (aim for 2-5 viral clips in this window, virality_score >= 6). "
+            f"Return strictly JSON.\n\n{transcript_chunk}"
+        )
+        anthropic_prompt = (
+            f"Analyze this gaming transcript window {window_desc}. "
+            f"Extract all entertaining, funny, intense, or clutch moments (aim for 2-5 viral clips in this window, virality_score >= 6). "
+            f"Return strictly valid JSON containing a 'clips' array with 'start_time', 'end_time', 'virality_score', and 'reasoning'. "
+            f"Do not include markdown formatting.\n\n{transcript_chunk}"
+        )
+        openai_prompt = (
+            f"Analyze this gaming transcript window {window_desc}. "
+            f"Extract all entertaining, funny, intense, or clutch moments (aim for 2-5 viral clips in this window, virality_score >= 6). "
+            f"Return strictly JSON.\n\n{transcript_chunk}"
+        )
 
     if is_gemini_model and not is_openrouter:
         if not HAS_GEMINI:
             if logger: logger("❌ Error: google-genai module missing. Run 'pip install -r requirements.txt'")
             return []
             
-        if logger: logger(f"🌌 Routing to native Gemini Engine ({chat_model}) with {len(segments)} segments...")
+        if logger and is_single_window:
+            logger(f"🌌 Routing to native Gemini Engine ({chat_model}) with {segment_count} segments...")
 
         try:
             client = genai.Client(api_key=google_key)
             response = client.models.generate_content(
                 model=chat_model,
-                contents=f"Analyze this entire gaming transcript. The timestamps for each line are in brackets. Return strictly JSON.\n\n{full_transcript}",
+                contents=gemini_prompt,
                 config={
                     "system_instruction": prompt_text,
                     "response_mime_type": "application/json"
@@ -1202,10 +1328,10 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
             chunk_data = json.loads(raw_text)
             found_clips = chunk_data.get("clips", [])
             if found_clips:
-                if logger: logger(f"🎯 Gemini found {len(found_clips)} clip(s) in the VOD!")
-                all_clips.extend(found_clips)
+                if logger and is_single_window: logger(f"🎯 Gemini found {len(found_clips)} clip(s) in the VOD!")
+                clips.extend(found_clips)
             else:
-                if logger: logger(f"🤷‍♂️ Gemini finished but didn't find any clips.")
+                if logger and is_single_window: logger("🤷‍♂️ Gemini finished but didn't find any clips.")
         except Exception as e:
             if logger: logger(f"❌ Gemini API Error: {e}")
 
@@ -1214,7 +1340,8 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
             if logger: logger("❌ Error: anthropic python module missing.")
             return []
             
-        if logger: logger(f"🌌 Routing to native Anthropic Engine ({chat_model}) with {len(segments)} segments...")
+        if logger and is_single_window:
+            logger(f"🌌 Routing to native Anthropic Engine ({chat_model}) with {segment_count} segments...")
 
         client = anthropic.Anthropic(api_key=anthropic_key)
         
@@ -1224,7 +1351,7 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
                 max_tokens=16000,
                 system=prompt_text,
                 messages=[
-                    {"role": "user", "content": f"Analyze this entire gaming transcript. Return strictly valid JSON containing a 'clips' array with 'start_time', 'end_time', 'virality_score', and 'reasoning'. Do not include markdown formatting.\n\n{full_transcript}"}
+                    {"role": "user", "content": anthropic_prompt}
                 ]
             )
             
@@ -1237,18 +1364,18 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
             chunk_data = json.loads(raw_content)
             found_clips = chunk_data.get("clips", [])
             if found_clips:
-                if logger: logger(f"🎯 Claude found {len(found_clips)} clip(s) in the VOD!")
-                all_clips.extend(found_clips)
+                if logger and is_single_window: logger(f"🎯 Claude found {len(found_clips)} clip(s) in the VOD!")
+                clips.extend(found_clips)
             else:
-                if logger: logger(f"🤷‍♂️ Claude finished but didn't find any clips.")
+                if logger and is_single_window: logger("🤷‍♂️ Claude finished but didn't find any clips.")
                 
         except Exception as e:
             if logger: logger(f"❌ Anthropic API Error: {e}")
 
     else:
-        if logger: 
-            if is_openrouter: logger(f"🤖 Routing to via Custom Base URL ({chat_model}) with {len(segments)} segments...")
-            else: logger(f"🤖 Routing to OpenAI Engine ({chat_model}) with {len(segments)} segments...")
+        if logger and is_single_window: 
+            if is_openrouter: logger(f"🤖 Routing to via Custom Base URL ({chat_model}) with {segment_count} segments...")
+            else: logger(f"🤖 Routing to OpenAI Engine ({chat_model}) with {segment_count} segments...")
             
         client_args = {"api_key": openai_key}
         if openai_base_url:
@@ -1261,7 +1388,7 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
                 "model": chat_model,
                 "messages": [
                     {"role": "system", "content": prompt_text},
-                    {"role": "user", "content": f"Analyze this entire gaming transcript. Return strictly JSON.\n\n{full_transcript}"}
+                    {"role": "user", "content": openai_prompt}
                 ]
             }
             # DeepSeek Reasoner and reasoning models reject response_format={"type": "json_object"} with HTTP 400
@@ -1281,12 +1408,85 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
             chunk_data = json.loads(raw_content)
             found_clips = chunk_data.get("clips", [])
             if found_clips:
-                if logger: logger(f"🎯 Found {len(found_clips)} clip(s)!")
-                all_clips.extend(found_clips)
+                if logger and is_single_window: logger(f"🎯 Found {len(found_clips)} clip(s)!")
+                clips.extend(found_clips)
             else:
-                if logger: logger(f"🤷‍♂️ No clips found.")
+                if logger and is_single_window: logger("🤷‍♂️ No clips found.")
         except Exception as e:
             if logger: logger(f"❌ OpenAI/Custom API Error: {e}")
+
+    return clips
+
+def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger=None, is_cancelled=None):
+    """Analyzes transcription segments with the selected LLM to discover candidate clips.
+    For longer videos (>30 mins or high segment volume), intelligently chunks transcripts
+    into overlapping temporal windows to prevent LLM attention loss and guarantee high
+    clip discovery density across the entire video.
+    """
+    if not segments:
+        return []
+
+    # Calculate overall transcript metrics
+    full_transcript_text = "".join(
+        f"[{seg['start']:.1f}s - {seg['end']:.1f}s] {seg['text'].strip()}\n"
+        for seg in segments
+    )
+    word_count = len(full_transcript_text.split())
+    estimated_tokens = int(word_count * 1.3)
+
+    windows = _partition_segments_into_windows(segments)
+    num_windows = len(windows)
+
+    if logger:
+        if num_windows > 1:
+            total_dur = max(s.get("end", 0.0) for s in segments) - min(s.get("start", 0.0) for s in segments)
+            logger(f"📊 Long VOD detected ({total_dur/60:.1f} mins, ~{estimated_tokens:,} tokens across {len(segments)} segments).")
+            logger(f"⏱️ Partitioned into {num_windows} temporal analysis windows (25m each, 2m overlap) for maximum clip density.")
+        else:
+            logger(f"📊 Extracted approx {estimated_tokens:,} tokens ({word_count:,} words) for the AI model's context window.")
+
+    all_clips = []
+    is_single_window = (num_windows == 1)
+
+    for idx, (w_start, w_end, win_segments) in enumerate(windows):
+        if is_cancelled and is_cancelled():
+            if logger:
+                logger("🛑 Clip extraction cancelled by user.")
+            break
+
+        window_desc = f"({w_start/60:.1f}m - {w_end/60:.1f}m)"
+        if num_windows > 1 and logger:
+            logger(f"🔍 [Window {idx+1}/{num_windows}] Scanning {window_desc} ({len(win_segments)} segments)...")
+
+        window_transcript = "".join(
+            f"[{seg['start']:.1f}s - {seg['end']:.1f}s] {seg['text'].strip()}\n"
+            for seg in win_segments
+        )
+
+        found = _query_llm_for_clips(
+            transcript_chunk=window_transcript,
+            config=config,
+            chat_model=chat_model,
+            prompt_text=prompt_text,
+            logger=logger,
+            is_single_window=is_single_window,
+            window_desc=window_desc,
+            segment_count=len(win_segments)
+        )
+
+        if found:
+            if num_windows > 1 and logger:
+                logger(f"🎯 Window {idx+1} discovered {len(found)} clip(s)!")
+            all_clips.extend(found)
+        elif num_windows > 1 and logger:
+            logger(f"🤷‍♂️ Window {idx+1} finished with no clips found.")
+
+    if num_windows > 1:
+        initial_count = len(all_clips)
+        all_clips = deduplicate_clips(all_clips, logger=logger)
+        if logger:
+            dedup_diff = initial_count - len(all_clips)
+            logger(f"✨ Aggregated {len(all_clips)} total clip(s) across all {num_windows} windows" + (f" (deduplicated {dedup_diff} boundary overlap(s))." if dedup_diff > 0 else "."))
 
     return all_clips
 
@@ -1388,7 +1588,9 @@ def analyze_content_and_synthesize_prompt(segments: list, config: dict, chat_mod
         "2. 'custom_prompt': A comprehensive system prompt instructing the extraction model how to find viral clips (15-90s) specifically for this type of content. "
         "The custom prompt MUST instruct the model to output strictly valid JSON with a 'clips' array containing start_time, end_time, virality_score, and reasoning. "
         "It MUST include the 'CLIP THAT' override rule (score 10 if anyone says 'clip it' or 'clip that'). "
-        "It MUST specifically define what constitutes a 9-10 score for this identified game/content type."
+        "It MUST specifically define what constitutes a 9-10 score for this identified game/content type. "
+        "It MUST mandate high clip discovery density: instruct the model to extract ALL qualifying viral moments throughout the footage without an arbitrary limit (aiming for 2-5 clips per 20-30 minutes of footage). "
+        "It MUST emphasize that text transcripts lack visual context, so the model should lower its threshold and extract clips for loud audio spikes [LOUDNESS: 90%+], combat action tags [ACTION: COMBAT], screams, laughs, tense silences, or funny banter (score >= 6)."
     )
 
     user_query = (
@@ -1517,6 +1719,8 @@ def normalize_and_validate_clips(raw_clips, max_duration=None, logger=None):
         norm_clip["reasoning"] = str(c.get("reasoning", "")).strip()
         valid_clips.append(norm_clip)
 
+    valid_clips = deduplicate_clips(valid_clips, logger=logger)
+
     return valid_clips
 
 def process_video(file_path, prompt_profile="Auto-Detect (Adaptive AI)", logger=None, is_cancelled=None, target_orientation=None):
@@ -1553,7 +1757,7 @@ def process_video(file_path, prompt_profile="Auto-Detect (Adaptive AI)", logger=
 
     if is_cancelled and is_cancelled(): return []
 
-    all_clips = _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger)
+    all_clips = _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger=logger, is_cancelled=is_cancelled)
 
     if all_clips:
         # Determine max video duration from transcription segments

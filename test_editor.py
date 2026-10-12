@@ -373,6 +373,92 @@ class TestEditorGenerateClipsWithLLM(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["virality_score"], 75)
 
+    def test_partition_segments_into_windows_short_video(self):
+        segments = [
+            {"start": 10.0, "end": 20.0, "text": "start"},
+            {"start": 500.0, "end": 520.0, "text": "middle"},
+            {"start": 1200.0, "end": 1220.0, "text": "end"}
+        ]
+        windows = editor._partition_segments_into_windows(segments)
+        self.assertEqual(len(windows), 1)
+        self.assertEqual(windows[0][0], 10.0)
+        self.assertEqual(windows[0][1], 1220.0)
+        self.assertEqual(len(windows[0][2]), 3)
+
+    def test_partition_segments_into_windows_long_video(self):
+        # 2 hours = 7200 seconds with segments every 100 seconds
+        segments = [{"start": float(i * 100), "end": float(i * 100 + 30), "text": f"seg {i}"} for i in range(73)]
+        windows = editor._partition_segments_into_windows(segments, window_size=1500.0, overlap=120.0)
+        self.assertGreater(len(windows), 1)
+        # Verify all segments are covered
+        covered_indices = set()
+        for _, _, win_segs in windows:
+            for s in win_segs:
+                covered_indices.add(int(s["start"] // 100))
+        self.assertEqual(len(covered_indices), 73)
+
+    def test_deduplicate_clips_overlap_and_proximity(self):
+        raw_clips = [
+            {"start_time": 10.0, "end_time": 30.0, "virality_score": 7.0, "reasoning": "first version"},
+            {"start_time": 12.0, "end_time": 32.0, "virality_score": 9.5, "reasoning": "higher score overlap"},
+            {"start_time": 100.0, "end_time": 130.0, "virality_score": 8.0, "reasoning": "separate clip"}
+        ]
+        deduped = editor.deduplicate_clips(raw_clips)
+        self.assertEqual(len(deduped), 2)
+        # Higher score (9.5) should have replaced lower score (7.0)
+        self.assertEqual(deduped[0]["virality_score"], 9.5)
+        self.assertEqual(deduped[0]["reasoning"], "higher score overlap")
+        self.assertEqual(deduped[1]["virality_score"], 8.0)
+
+    @unittest.mock.patch('editor._query_llm_for_clips')
+    def test_generate_clips_with_llm_multi_window_aggregation(self, mock_query):
+        # 1-hour VOD segments (3600 seconds)
+        segments = [
+            {"start": 10.0, "end": 20.0, "text": "start of stream"},
+            {"start": 1000.0, "end": 1020.0, "text": "mid 1"},
+            {"start": 2000.0, "end": 2020.0, "text": "mid 2"},
+            {"start": 3500.0, "end": 3550.0, "text": "end of stream"}
+        ]
+        mock_query.side_effect = [
+            [{"start_time": 10.0, "end_time": 30.0, "virality_score": 8.0, "reasoning": "early moment"}],
+            [{"start_time": 2000.0, "end_time": 2040.0, "virality_score": 9.0, "reasoning": "mid moment"}],
+            [{"start_time": 3500.0, "end_time": 3540.0, "virality_score": 8.5, "reasoning": "late moment"}]
+        ]
+        config = {"openai": {"api_key": "test-key"}}
+        clips = editor._generate_clips_with_llm(
+            segments, config, "gpt-4o", "test prompt"
+        )
+        self.assertGreaterEqual(mock_query.call_count, 2)
+        self.assertEqual(len(clips), 3)
+        self.assertEqual(clips[0]["reasoning"], "early moment")
+        self.assertEqual(clips[-1]["reasoning"], "late moment")
+
+    @unittest.mock.patch('editor._query_llm_for_clips')
+    def test_generate_clips_with_llm_cancellation_support(self, mock_query):
+        segments = [
+            {"start": 0.0, "end": 10.0, "text": "seg1"},
+            {"start": 3000.0, "end": 3010.0, "text": "seg2"}
+        ]
+        mock_query.return_value = [{"start_time": 0.0, "end_time": 10.0, "virality_score": 8.0}]
+        
+        cancel_flag = False
+        def is_cancelled():
+            return cancel_flag
+
+        def fake_query(*args, **kwargs):
+            nonlocal cancel_flag
+            cancel_flag = True # cancel right after first window
+            return [{"start_time": 0.0, "end_time": 10.0, "virality_score": 8.0}]
+
+        mock_query.side_effect = fake_query
+        config = {"openai": {"api_key": "test-key"}}
+        clips = editor._generate_clips_with_llm(
+            segments, config, "gpt-4o", "test prompt", is_cancelled=is_cancelled
+        )
+        # Should only have called once because cancel was triggered
+        self.assertEqual(mock_query.call_count, 1)
+        self.assertEqual(len(clips), 1)
+
 class TestEditorCodecAndEncoderFlags(unittest.TestCase):
     @unittest.mock.patch('torch.cuda.is_available', return_value=False)
     def test_get_gpu_codec_cpu_fallback(self, mock_cuda):
