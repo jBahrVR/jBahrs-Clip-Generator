@@ -415,25 +415,6 @@ class SettingsFrame(ctk.CTkScrollableFrame):
         )
         self.verify_ig_btn.grid(row=10, column=2, padx=(0, 20), pady=(4, 15), sticky="e")
 
-        self.help_card = ctk.CTkFrame(
-            self,
-            corner_radius=theme.RADIUS_CARD,
-            fg_color=theme.COLOR_CARD_BG,
-            border_width=1,
-            border_color=theme.COLOR_CARD_BORDER
-        )
-        self.help_card.grid(row=5, column=0, padx=30, pady=(16, 0), sticky="ew")
-        
-        help_text = (
-            "Quick Reference:\n\n"
-            "• AI Engines: Gemini 2.5 Flash / 3.6 Flash is recommended for streams over 1 hour.\n"
-            "• Hardware: NVIDIA GPUs (CUDA) process whisper audio significantly faster.\n"
-            "• Aspect Ratio: Native orientation is auto-detected without manual coordinates.\n\n"
-            "Click 'Save Settings' below after making configuration updates."
-        )
-        self.help_label = ctk.CTkLabel(self.help_card, text=help_text, justify="left", font=ctk.CTkFont(size=12), text_color=theme.COLOR_TEXT_MUTED, padx=20, pady=16)
-        self.help_label.pack(anchor="w")
-
         self.save_btn = ctk.CTkButton(
             self,
             text="Save Settings",
@@ -445,7 +426,7 @@ class SettingsFrame(ctk.CTkScrollableFrame):
             font=ctk.CTkFont(weight="bold"),
             command=self._trigger_save
         )
-        self.save_btn.grid(row=6, column=0, padx=30, pady=20, sticky="e")
+        self.save_btn.grid(row=5, column=0, padx=30, pady=(20, 30), sticky="e")
 
     def _trigger_save(self) -> None:
         if self.on_save:
