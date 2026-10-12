@@ -344,7 +344,7 @@ def get_raw_default_dict() -> Dict[str, Any]:
                     "- Strict Quality: Rank clips 1-10. Because text lacks visual context, lower your standards slightly. You must extract ANY clip that scores a 6 or higher. \n\n"
                     "### FORMATTING INSTRUCTIONS\n"
                     "Output STRICTLY valid JSON with no markdown. Your output must be an object with a 'clips' array. \n"
-                    "There is NO limit to the number of clips you can extract; find as many as you deem viral! \n"
+                    "There is NO limit to the number of clips you can extract; extract ALL moments that score 6 or higher (aim for 2-5 clips per 20-30 minutes of footage). Do NOT stop after only 3 or 4 clips! \n"
                     "Each clip object in the array must contain exactly these 4 fields:\n"
                     "1. 'start_time' (float)\n"
                     "2. 'end_time' (float)\n"

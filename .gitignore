@@ -1,41 +1,74 @@
-# Python stuff
+# Python bytecode & cache
 __pycache__/
 *.py[cod]
 *.pyc
-test_anthropic.py
 
-# Build folders
+# Environments & Virtualenvs
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables & Secrets (CRITICAL)
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.cert
+secrets.json
+credentials.json
+config.json
+cookies.txt
+
+# Local Configuration and User Data
+logs/
+app_crash_log.txt
+logs/auto_scheduler.log
+config/gemini.md
+
+# Build & Packaging folders
 build/
 dist/
 Output/
-logs/
 *.spec
 !ClipGen.spec
+*.iss
+!installer.iss
+*.zip
 
-# Personal / Local Data
-config.json
-cookies.txt
+# Media & Temporary Video Files
 *.mp4
 *.mp3
+*.mkv
+*.webm
+*.wav
+*.avi
+*.mov
+*.flv
+temp/
+tmp/
+
+# Text & Config Exclusions
 *.txt
 !requirements.txt
 *.ini
 !pytest.ini
-*.iss
-!installer.iss
-*.zip
-*.log
+test_anthropic.py
 
 # External Executables
 *.exe
 
-# Configuration and API Keys (CRITICAL)
-config.json
-
-# Logs
-app_crash_log.txt
-logs/auto_scheduler.log
-config/gemini.md
+# IDE & OS Artifacts
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # Coverage & Test Artifacts
 .coverage
