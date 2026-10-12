@@ -6,13 +6,14 @@ import subprocess
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
 venv_python = os.path.join(script_dir, ".venv", "Scripts", "python.exe")
-if __name__ == "__main__" and os.path.exists(venv_python) and os.path.normcase(os.path.abspath(sys.executable)) != os.path.normcase(os.path.abspath(venv_python)):
+if not getattr(sys, "frozen", False) and __name__ == "__main__" and os.path.exists(venv_python) and os.path.normcase(os.path.abspath(sys.executable)) != os.path.normcase(os.path.abspath(venv_python)):
     print(f"[ClipGen] Switching to virtual environment Python: {venv_python}")
     app_script = os.path.abspath(__file__)
     ret = subprocess.call([venv_python, app_script] + sys.argv[1:], cwd=script_dir)
     sys.exit(ret)
 
 from tkinter import messagebox
+from typing import Optional, List, Dict, Any
 
 if sys.stdout is None:
     sys.stdout = open(os.devnull, "w")

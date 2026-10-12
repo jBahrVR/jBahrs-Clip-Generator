@@ -953,5 +953,64 @@ class TestVerticalRenderOptimization(unittest.TestCase):
         # Verify audio stream copy is used
         self.assertEqual(v_audio_flags, ["-c:a", "copy"])
 
+
+class TestClipValidationAndNormalization(unittest.TestCase):
+    def test_parse_timestamp_formats(self):
+        self.assertEqual(editor.parse_timestamp_to_seconds(15), 15.0)
+        self.assertEqual(editor.parse_timestamp_to_seconds(15.5), 15.5)
+        self.assertEqual(editor.parse_timestamp_to_seconds("22.4s"), 22.4)
+        self.assertEqual(editor.parse_timestamp_to_seconds(" 45.0 "), 45.0)
+        self.assertEqual(editor.parse_timestamp_to_seconds("01:30"), 90.0)
+        self.assertEqual(editor.parse_timestamp_to_seconds("01:02:03"), 3723.0)
+        self.assertIsNone(editor.parse_timestamp_to_seconds(None))
+        self.assertIsNone(editor.parse_timestamp_to_seconds("invalid"))
+
+    def test_normalize_and_validate_clips_filtering(self):
+        raw_clips = [
+            {"start_time": "10.0s", "end_time": "30.0s", "virality_score": "8.5", "reasoning": "Great clip"},
+            {"start_time": "01:00", "end_time": "01:45", "virality_score": 9, "reasoning": "Clock time clip"},
+            {"start_time": "50.0", "end_time": "51.0", "virality_score": 5}, # too short (<3s)
+            {"start_time": "70.0", "end_time": "60.0", "virality_score": 7}, # reversed end <= start
+            {"start_time": "invalid", "end_time": "90.0", "virality_score": 6}, # bad timestamp
+            {"start_time": "500.0", "end_time": "530.0", "virality_score": 8}, # beyond max_duration
+            {"start_time": "140.0", "end_time": "180.0", "virality_score": 9}, # end clamped to max_duration
+        ]
+        validated = editor.normalize_and_validate_clips(raw_clips, max_duration=150.0)
+        self.assertEqual(len(validated), 3)
+
+        # Clip 1
+        self.assertEqual(validated[0]["start_time"], 10.0)
+        self.assertEqual(validated[0]["end_time"], 30.0)
+        self.assertEqual(validated[0]["duration"], 20.0)
+        self.assertEqual(validated[0]["virality_score"], 8.5)
+
+        # Clip 2
+        self.assertEqual(validated[1]["start_time"], 60.0)
+        self.assertEqual(validated[1]["end_time"], 105.0)
+        self.assertEqual(validated[1]["duration"], 45.0)
+
+        # Clip 3 (clamped to max_duration 150.0)
+        self.assertEqual(validated[2]["start_time"], 140.0)
+        self.assertEqual(validated[2]["end_time"], 150.0)
+        self.assertEqual(validated[2]["duration"], 10.0)
+
+    @unittest.mock.patch('editor._process_single_clip', return_value=["clip1.mp4", "clip1_vertical.mp4"])
+    def test_extract_clips_both_orientation_enables_vertical(self, mock_process):
+        editor.extract_clips(
+            file_path="dummy.mp4",
+            clips_data={"clips": [{"start_time": 10, "end_time": 30}]},
+            output_dir="dummy_out",
+            logger=None,
+            target_orientation="Both (16:9 + 9:16)"
+        )
+        self.assertTrue(mock_process.called)
+        # Check that vertical_export argument was passed as True
+        called_kwargs = mock_process.call_args[1] if mock_process.call_args[1] else {}
+        called_args = mock_process.call_args[0]
+        # _process_single_clip positional: (i, clip, file_path, base_name, output_dir, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, vertical_export, ...)
+        vertical_export_arg = called_args[9]
+        self.assertTrue(vertical_export_arg)
+
+
 if __name__ == '__main__':
     unittest.main()

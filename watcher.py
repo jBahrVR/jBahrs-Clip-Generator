@@ -217,10 +217,17 @@ def main(logger_callback=None):
                 
                 if downloaded_path:
                     prompt_profile = config.get("auto_scheduler", {}).get("auto_prompt_profile", "Default VR")
+                    target_orientation = config.get("auto_scheduler", {}).get("target_orientation", "Both (16:9 + 9:16)")
                     if logger_callback: 
-                        logger_callback(f"🧠 Passing VOD to AI Editor using profile: [{prompt_profile}]")
+                        logger_callback(f"🧠 Passing VOD to AI Editor using profile: [{prompt_profile}] [{target_orientation}]")
                     # We are passing down a mock lambda just for completeness, as watcher doesn't have a UI cancel button yet
-                    editor.process_video(downloaded_path, prompt_profile=prompt_profile, logger=logger_callback, is_cancelled=lambda: False)
+                    editor.process_video(
+                        downloaded_path,
+                        prompt_profile=prompt_profile,
+                        logger=logger_callback,
+                        is_cancelled=lambda: False,
+                        target_orientation=target_orientation
+                    )
                     
                     if logger_callback: 
                         logger_callback("🏁 Auto-Scheduler finished processing the new video!")

@@ -760,10 +760,10 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None, 
 
     if target_orientation == "Vertical Only (9:16)":
         vertical_export = True
-    elif target_orientation in ("Horizontal Only (16:9)", "Native", "Auto", "Auto-Detect (Native)", None):
+    elif target_orientation in ("Horizontal Only (16:9)", "Native", "Auto", "Auto-Detect (Native)"):
         vertical_export = False
     elif target_orientation == "Both (16:9 + 9:16)":
-        vertical_export = False
+        vertical_export = True
     else:
         vertical_export = config.get("settings", {}).get("vertical_export", False)
 
@@ -1211,7 +1211,7 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
         try:
             response = client.messages.create(
                 model=chat_model,
-                max_tokens=4000,
+                max_tokens=16000,
                 system=prompt_text,
                 messages=[
                     {"role": "user", "content": f"Analyze this entire gaming transcript. Return strictly valid JSON containing a 'clips' array with 'start_time', 'end_time', 'virality_score', and 'reasoning'. Do not include markdown formatting.\n\n{full_transcript}"}
@@ -1280,6 +1280,99 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
 
     return all_clips
 
+def parse_timestamp_to_seconds(val):
+    """Safely converts timestamps into float seconds.
+    Supports numbers, string seconds ('14.5s', '14.5'), and clock formats ('01:23:45.6', '02:30').
+    Returns None if unparseable.
+    """
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    if isinstance(val, str):
+        clean = val.strip().lower()
+        if clean.endswith("s"):
+            clean = clean[:-1].strip()
+        try:
+            return float(clean)
+        except ValueError:
+            pass
+
+        # Parse clock string format HH:MM:SS or MM:SS
+        parts = clean.split(":")
+        if 2 <= len(parts) <= 3:
+            try:
+                parts_f = [float(p) for p in parts]
+                if len(parts_f) == 2:
+                    return parts_f[0] * 60.0 + parts_f[1]
+                elif len(parts_f) == 3:
+                    return parts_f[0] * 3600.0 + parts_f[1] * 60.0 + parts_f[2]
+            except ValueError:
+                pass
+    return None
+
+def normalize_and_validate_clips(raw_clips, max_duration=None, logger=None):
+    """Validates and normalizes candidate clips produced by LLMs.
+    - Parses timestamps safely (converting '15s', '01:23', etc.)
+    - Drops clips with invalid/negative bounds or end_time <= start_time
+    - Enforces bounds against max_duration if known
+    - Warns on anomalous durations (< 3s or > 180s)
+    - Ensures score and reasoning fields exist safely
+    """
+    valid_clips = []
+    if not isinstance(raw_clips, list):
+        return valid_clips
+
+    for idx, c in enumerate(raw_clips):
+        if not isinstance(c, dict):
+            continue
+
+        s = parse_timestamp_to_seconds(c.get("start_time"))
+        e = parse_timestamp_to_seconds(c.get("end_time"))
+
+        if s is None or e is None:
+            if logger:
+                logger(f"⚠️ Discarding clip #{idx+1}: Unparseable timestamps (start={c.get('start_time')}, end={c.get('end_time')})")
+            continue
+
+        if s < 0:
+            s = 0.0
+
+        if e <= s:
+            if logger:
+                logger(f"⚠️ Discarding clip #{idx+1}: Invalid duration window ({s:.1f}s to {e:.1f}s)")
+            continue
+
+        duration = e - s
+        if duration < 3.0:
+            if logger:
+                logger(f"⚠️ Discarding clip #{idx+1}: Clip too short ({duration:.1f}s < 3s)")
+            continue
+
+        if max_duration is not None and max_duration > 0:
+            if s >= max_duration:
+                if logger:
+                    logger(f"⚠️ Discarding clip #{idx+1}: Start timestamp ({s:.1f}s) exceeds video duration ({max_duration:.1f}s)")
+                continue
+            if e > max_duration:
+                e = round(max_duration, 2)
+
+        norm_clip = dict(c)
+        norm_clip["start_time"] = round(s, 2)
+        norm_clip["end_time"] = round(e, 2)
+        norm_clip["duration"] = round(norm_clip["end_time"] - norm_clip["start_time"], 2)
+
+        raw_score = c.get("virality_score", "NA")
+        try:
+            norm_clip["virality_score"] = float(raw_score)
+        except (ValueError, TypeError):
+            norm_clip["virality_score"] = str(raw_score)
+
+        norm_clip["reasoning"] = str(c.get("reasoning", "")).strip()
+        valid_clips.append(norm_clip)
+
+    return valid_clips
+
 def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None, is_cancelled=None, target_orientation=None):
     """Main orchestration function for analyzing and cutting clips."""
     config = config_manager.load_config()
@@ -1305,6 +1398,11 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
     all_clips = _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger)
 
     if all_clips:
+        # Determine max video duration from transcription segments
+        max_duration = max((s.get("end", 0.0) for s in segments), default=None)
+        all_clips = normalize_and_validate_clips(all_clips, max_duration=max_duration, logger=logger)
+
+    if all_clips:
         # Attach word timestamps from transcription segments to extracted clips
         for clip in all_clips:
             c_start = float(clip.get("start_time", 0.0))
@@ -1324,5 +1422,5 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
         if logger: logger(f"✨ Successfully exported {len(created)} file(s) to your folder!")
         return created
     else:
-        if logger: logger("🤷‍♂️ AI finished scanning the VOD but didn't extract any clips.")
+        if logger: logger("🤷‍♂️ AI finished scanning the VOD but didn't extract any valid clips.")
         return []
