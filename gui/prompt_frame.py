@@ -1,5 +1,6 @@
 import customtkinter as ctk # type: ignore
 from typing import Optional, Callable, List
+from . import theme
 
 class PromptFrame(ctk.CTkFrame):
     """
@@ -25,41 +26,98 @@ class PromptFrame(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
         
-        self.prompt_title = ctk.CTkLabel(self, text="AI Prompt Editor", font=ctk.CTkFont(size=28, weight="bold"))
-        self.prompt_title.grid(row=0, column=0, padx=30, pady=(30, 10), sticky="w")
+        self.prompt_title = ctk.CTkLabel(
+            self,
+            text="Prompt Profiles & System Directives",
+            font=ctk.CTkFont(size=24, weight="bold"),
+            text_color=theme.COLOR_TEXT_PRIMARY
+        )
+        self.prompt_title.grid(row=0, column=0, padx=30, pady=(20, 6), sticky="w")
 
-        self.prompt_select_card = ctk.CTkFrame(self, corner_radius=15)
-        self.prompt_select_card.grid(row=1, column=0, padx=30, pady=10, sticky="ew")
+        self.prompt_select_card = ctk.CTkFrame(
+            self,
+            corner_radius=theme.RADIUS_CARD,
+            fg_color=theme.COLOR_CARD_BG,
+            border_width=1,
+            border_color=theme.COLOR_CARD_BORDER
+        )
+        self.prompt_select_card.grid(row=1, column=0, padx=30, pady=8, sticky="ew")
         
-        ctk.CTkLabel(self.prompt_select_card, text="Active Manual Profile:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=20, pady=20)
-        self.profile_dropdown = ctk.CTkOptionMenu(self.prompt_select_card, command=self._trigger_profile_change)
-        self.profile_dropdown.pack(side="left", padx=10)
+        ctk.CTkLabel(
+            self.prompt_select_card,
+            text="Active Profile:",
+            font=ctk.CTkFont(weight="bold"),
+            text_color=theme.COLOR_TEXT_MUTED
+        ).pack(side="left", padx=(18, 10), pady=14)
+        
+        self.profile_dropdown = ctk.CTkOptionMenu(
+            self.prompt_select_card,
+            height=32,
+            corner_radius=theme.RADIUS_BUTTON,
+            fg_color=theme.COLOR_HOVER_MUTED,
+            button_color=theme.COLOR_HOVER_MUTED,
+            command=self._trigger_profile_change
+        )
+        self.profile_dropdown.pack(side="left", padx=6)
 
         self.new_profile_btn = ctk.CTkButton(
-            self.prompt_select_card, text="➕ New", width=60, fg_color="#27ae60",
-            hover_color="#1e8449", command=self._trigger_new_profile
+            self.prompt_select_card,
+            text="New Profile",
+            width=90,
+            height=32,
+            corner_radius=theme.RADIUS_BUTTON,
+            fg_color=theme.COLOR_HOVER_MUTED,
+            hover_color="#363a44",
+            text_color=theme.COLOR_TEXT_PRIMARY,
+            command=self._trigger_new_profile
         )
-        self.new_profile_btn.pack(side="left", padx=5)
+        self.new_profile_btn.pack(side="left", padx=6)
 
         self.delete_profile_btn = ctk.CTkButton(
-            self.prompt_select_card, text="Delete Profile", fg_color="#c0392b",
-            hover_color="#922b21", command=self._trigger_delete_profile
+            self.prompt_select_card,
+            text="Delete Profile",
+            height=32,
+            corner_radius=theme.RADIUS_BUTTON,
+            fg_color=theme.COLOR_DANGER,
+            hover_color=theme.COLOR_DANGER_HOVER,
+            text_color="#FFFFFF",
+            font=ctk.CTkFont(weight="bold"),
+            command=self._trigger_delete_profile
         )
-        self.delete_profile_btn.pack(side="right", padx=20)
+        self.delete_profile_btn.pack(side="right", padx=18)
 
-        self.prompt_editor_card = ctk.CTkFrame(self, corner_radius=15)
-        self.prompt_editor_card.grid(row=2, column=0, padx=30, pady=10, sticky="nsew")
+        self.prompt_editor_card = ctk.CTkFrame(
+            self,
+            corner_radius=theme.RADIUS_CARD,
+            fg_color=theme.COLOR_CARD_BG,
+            border_width=1,
+            border_color=theme.COLOR_CARD_BORDER
+        )
+        self.prompt_editor_card.grid(row=2, column=0, padx=30, pady=(4, 15), sticky="nsew")
         self.prompt_editor_card.grid_columnconfigure(0, weight=1)
         self.prompt_editor_card.grid_rowconfigure(0, weight=1)
 
-        self.prompt_textbox = ctk.CTkTextbox(self.prompt_editor_card, font=ctk.CTkFont(size=14), wrap="word")
-        self.prompt_textbox.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+        self.prompt_textbox = ctk.CTkTextbox(
+            self.prompt_editor_card,
+            font=ctk.CTkFont(size=13),
+            wrap="word",
+            fg_color=theme.COLOR_INPUT_BG,
+            corner_radius=theme.RADIUS_INPUT
+        )
+        self.prompt_textbox.grid(row=0, column=0, padx=16, pady=16, sticky="nsew")
 
         self.save_prompt_btn = ctk.CTkButton(
-            self.prompt_editor_card, text="Save Current Prompt", height=40,
-            font=ctk.CTkFont(weight="bold"), command=self._trigger_save_prompt
+            self.prompt_editor_card,
+            text="Save Current Prompt",
+            height=36,
+            corner_radius=theme.RADIUS_BUTTON,
+            text_color=theme.COLOR_ACCENT_TEXT,
+            fg_color=theme.COLOR_ACCENT,
+            hover_color=theme.COLOR_ACCENT_HOVER,
+            font=ctk.CTkFont(weight="bold"),
+            command=self._trigger_save_prompt
         )
-        self.save_prompt_btn.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="e")
+        self.save_prompt_btn.grid(row=1, column=0, padx=16, pady=(0, 16), sticky="e")
 
     def _trigger_profile_change(self, choice: str) -> None:
         if self.on_profile_change:

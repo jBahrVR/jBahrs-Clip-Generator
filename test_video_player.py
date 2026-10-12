@@ -385,8 +385,26 @@ class TestVideoPreviewWidget(unittest.TestCase):
         self.widget.close()
         mock_ctrl.close.assert_called_once()
         self.assertIsNone(self.widget.controller)
-        self.assertIsNone(self.widget._cached_primary_img)
-        self.assertIsNone(self.widget._cached_companion_img)
+    def test_clear_widget_image_and_image_persistence(self):
+        # Verify _clear_widget_image clears underlying tk label image
+        mock_lbl = MagicMock()
+        mock_lbl._label = MagicMock()
+        self.widget._clear_widget_image(mock_lbl)
+        mock_lbl._label.configure.assert_called_with(image="")
+        mock_lbl.configure.assert_called_with(image=None)
+
+        # Verify persistent image references are tracked in _render_viewports
+        self.widget._cached_primary_img = Image.new("RGB", (320, 180))
+        self.widget._cached_companion_img = Image.new("RGB", (180, 320))
+        self.widget.view_mode = "side_by_side"
+        self.widget._render_viewports(0.0)
+        self.assertIsNotNone(self.widget._current_ctk_left)
+        self.assertIsNotNone(self.widget._current_ctk_right)
+
+        # Verify close cleans up persistent references
+        self.widget.close()
+        self.assertIsNone(self.widget._current_ctk_left)
+        self.assertIsNone(self.widget._current_ctk_right)
 
 
 if __name__ == "__main__":

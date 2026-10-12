@@ -3,6 +3,7 @@ import threading
 import customtkinter as ctk # type: ignore
 from typing import Optional, Callable, Dict, Any
 from social_publisher import SocialPlatform, PublishPrivacy, PublishPayload, get_social_publish_manager
+from . import theme
 
 class PublishDialog(ctk.CTkToplevel):
     """
@@ -38,21 +39,28 @@ class PublishDialog(ctk.CTkToplevel):
         # Header
         self.header_label = ctk.CTkLabel(
             self,
-            text="🚀 Publish to Social Media",
-            font=ctk.CTkFont(size=22, weight="bold")
+            text="Publish to Social Platforms",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color=theme.COLOR_TEXT_PRIMARY
         )
-        self.header_label.pack(pady=(20, 5), padx=25, anchor="w")
+        self.header_label.pack(pady=(20, 4), padx=25, anchor="w")
 
         self.sub_label = ctk.CTkLabel(
             self,
             text="Export directly to YouTube Shorts, TikTok, or Instagram Reels.",
             font=ctk.CTkFont(size=12),
-            text_color="#a0a0a0"
+            text_color=theme.COLOR_TEXT_MUTED
         )
         self.sub_label.pack(pady=(0, 15), padx=25, anchor="w")
 
         # Container Card
-        self.form_card = ctk.CTkFrame(self, corner_radius=12)
+        self.form_card = ctk.CTkFrame(
+            self,
+            corner_radius=theme.RADIUS_CARD,
+            fg_color=theme.COLOR_CARD_BG,
+            border_width=1,
+            border_color=theme.COLOR_CARD_BORDER
+        )
         self.form_card.pack(fill="both", expand=True, padx=25, pady=(0, 15))
         self.form_card.grid_columnconfigure(1, weight=1)
 
@@ -69,6 +77,9 @@ class PublishDialog(ctk.CTkToplevel):
         self.platform_menu = ctk.CTkSegmentedButton(
             self.form_card,
             values=[SocialPlatform.YOUTUBE_SHORTS.value, SocialPlatform.TIKTOK.value, SocialPlatform.INSTAGRAM_REELS.value],
+            corner_radius=theme.RADIUS_BUTTON,
+            selected_color=theme.COLOR_ACCENT,
+            selected_hover_color=theme.COLOR_ACCENT_HOVER,
             command=self._on_platform_changed
         )
         self.platform_menu.set(SocialPlatform.YOUTUBE_SHORTS.value)
@@ -78,7 +89,14 @@ class PublishDialog(ctk.CTkToplevel):
         ctk.CTkLabel(self.form_card, text="Title / Hook:", font=ctk.CTkFont(weight="bold")).grid(
             row=2, column=0, padx=15, pady=10, sticky="e"
         )
-        self.title_entry = ctk.CTkEntry(self.form_card, height=36)
+        self.title_entry = ctk.CTkEntry(
+            self.form_card,
+            height=36,
+            corner_radius=theme.RADIUS_INPUT,
+            fg_color=theme.COLOR_INPUT_BG,
+            border_width=1,
+            border_color=theme.COLOR_CARD_BORDER
+        )
         self.title_entry.grid(row=2, column=1, padx=(0, 15), pady=10, sticky="ew")
 
         # Pre-fill title
@@ -90,7 +108,16 @@ class PublishDialog(ctk.CTkToplevel):
         ctk.CTkLabel(self.form_card, text="Caption / Tags:", font=ctk.CTkFont(weight="bold")).grid(
             row=3, column=0, padx=15, pady=10, sticky="ne"
         )
-        self.desc_box = ctk.CTkTextbox(self.form_card, height=110, wrap="word", font=ctk.CTkFont(size=12))
+        self.desc_box = ctk.CTkTextbox(
+            self.form_card,
+            height=110,
+            wrap="word",
+            font=ctk.CTkFont(size=12),
+            corner_radius=theme.RADIUS_INPUT,
+            fg_color=theme.COLOR_INPUT_BG,
+            border_width=1,
+            border_color=theme.COLOR_CARD_BORDER
+        )
         self.desc_box.grid(row=3, column=1, padx=(0, 15), pady=10, sticky="ew")
         
         # Pre-fill reasoning + tags
@@ -106,7 +133,10 @@ class PublishDialog(ctk.CTkToplevel):
             self.form_card,
             values=[PublishPrivacy.PUBLIC.value, PublishPrivacy.UNLISTED.value, PublishPrivacy.PRIVATE.value],
             height=32,
-            width=140
+            width=140,
+            corner_radius=theme.RADIUS_BUTTON,
+            fg_color=theme.COLOR_HOVER_MUTED,
+            button_color=theme.COLOR_HOVER_MUTED
         )
         self.privacy_menu.set(PublishPrivacy.PUBLIC.value)
         self.privacy_menu.grid(row=4, column=1, padx=(0, 15), pady=10, sticky="w")
@@ -116,11 +146,16 @@ class PublishDialog(ctk.CTkToplevel):
             self.form_card,
             text="Ready to publish.",
             font=ctk.CTkFont(size=12),
-            text_color="#a0a0a0"
+            text_color=theme.COLOR_TEXT_MUTED
         )
         self.status_label.grid(row=5, column=0, columnspan=2, padx=15, pady=(15, 4), sticky="w")
 
-        self.progress_bar = ctk.CTkProgressBar(self.form_card, height=8)
+        self.progress_bar = ctk.CTkProgressBar(
+            self.form_card,
+            height=6,
+            progress_color=theme.COLOR_ACCENT,
+            corner_radius=3
+        )
         self.progress_bar.grid(row=6, column=0, columnspan=2, padx=15, pady=(0, 15), sticky="ew")
         self.progress_bar.set(0)
 
@@ -132,20 +167,24 @@ class PublishDialog(ctk.CTkToplevel):
         self.cancel_btn = ctk.CTkButton(
             self.btn_frame,
             text="Close",
-            height=40,
-            fg_color="#34495e",
-            hover_color="#2c3e50",
+            height=38,
+            corner_radius=theme.RADIUS_BUTTON,
+            fg_color=theme.COLOR_HOVER_MUTED,
+            hover_color="#363a44",
+            text_color=theme.COLOR_TEXT_PRIMARY,
             command=self.destroy
         )
         self.cancel_btn.grid(row=0, column=0, padx=(0, 8), sticky="ew")
 
         self.publish_btn = ctk.CTkButton(
             self.btn_frame,
-            text="🚀 Publish Now",
-            height=40,
+            text="Publish Now",
+            height=38,
+            corner_radius=theme.RADIUS_BUTTON,
             font=ctk.CTkFont(weight="bold"),
-            fg_color="#e67e22",
-            hover_color="#d35400",
+            text_color=theme.COLOR_ACCENT_TEXT,
+            fg_color=theme.COLOR_ACCENT,
+            hover_color=theme.COLOR_ACCENT_HOVER,
             command=self._start_publish_thread
         )
         self.publish_btn.grid(row=0, column=1, padx=(8, 0), sticky="ew")

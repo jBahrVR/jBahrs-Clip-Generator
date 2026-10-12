@@ -1,6 +1,7 @@
 import os
 import customtkinter as ctk # type: ignore
 from typing import Optional, Callable, List, Dict, Any
+from . import theme
 
 try:
     import windnd # type: ignore
@@ -53,32 +54,43 @@ class ManualFrame(ctk.CTkFrame):
         self.manual_title = ctk.CTkLabel(
             self,
             text="Manual Video Processor & Queue",
-            font=ctk.CTkFont(size=26, weight="bold")
+            font=ctk.CTkFont(size=24, weight="bold"),
+            text_color=theme.COLOR_TEXT_PRIMARY
         )
-        self.manual_title.grid(row=0, column=0, padx=30, pady=(20, 5), sticky="w")
+        self.manual_title.grid(row=0, column=0, padx=30, pady=(20, 6), sticky="w")
         
         # --- Input Card ---
-        self.input_card = ctk.CTkFrame(self, corner_radius=15)
+        self.input_card = ctk.CTkFrame(
+            self,
+            corner_radius=theme.RADIUS_CARD,
+            fg_color=theme.COLOR_CARD_BG,
+            border_width=1,
+            border_color=theme.COLOR_CARD_BORDER
+        )
         self.input_card.grid(row=1, column=0, padx=30, pady=8, sticky="ew")
         self.input_card.grid_columnconfigure(0, weight=1)
 
         self.url_input = ctk.CTkEntry(
             self.input_card,
             placeholder_text="Paste YouTube / Twitch URL or Drop Local Video File(s)...",
-            height=42,
-            border_width=0
+            height=40,
+            border_width=1,
+            border_color=theme.COLOR_CARD_BORDER,
+            fg_color=theme.COLOR_INPUT_BG,
+            corner_radius=theme.RADIUS_INPUT
         )
-        self.url_input.grid(row=0, column=0, padx=(15, 8), pady=12, sticky="ew")
+        self.url_input.grid(row=0, column=0, padx=(14, 8), pady=12, sticky="ew")
         self.url_input.bind("<Return>", lambda e: self._trigger_add_to_queue())
 
         self.add_queue_btn = ctk.CTkButton(
             self.input_card,
-            text="➕ Add to Queue",
-            height=42,
-            width=120,
-            text_color="#FFFFFF",
-            fg_color="#2980b9",
-            hover_color="#1f618d",
+            text="Add to Queue",
+            height=40,
+            width=115,
+            corner_radius=theme.RADIUS_BUTTON,
+            text_color=theme.COLOR_TEXT_PRIMARY,
+            fg_color=theme.COLOR_HOVER_MUTED,
+            hover_color="#363a44",
             font=ctk.CTkFont(weight="bold"),
             command=self._trigger_add_to_queue
         )
@@ -86,25 +98,28 @@ class ManualFrame(ctk.CTkFrame):
 
         self.local_file_btn = ctk.CTkButton(
             self.input_card,
-            text="📂 Browse Files",
-            height=42,
-            width=115,
-            text_color="#FFFFFF",
-            fg_color="#27ae60",
-            hover_color="#1e8449",
+            text="Browse Files",
+            height=40,
+            width=110,
+            corner_radius=theme.RADIUS_BUTTON,
+            text_color=theme.COLOR_TEXT_PRIMARY,
+            fg_color=theme.COLOR_HOVER_MUTED,
+            hover_color="#363a44",
             font=ctk.CTkFont(weight="bold"),
             command=self._trigger_browse_files
         )
         self.local_file_btn.grid(row=0, column=2, padx=(0, 6), pady=12)
 
+        # Primary Action CTA (Electric Cyan Accent)
         self.process_btn = ctk.CTkButton(
             self.input_card,
-            text="▶ Process Queue",
-            height=42,
-            width=125,
-            text_color="#FFFFFF",
-            fg_color="#3a7ebf",
-            hover_color="#1f538d",
+            text="Process Queue",
+            height=40,
+            width=130,
+            corner_radius=theme.RADIUS_BUTTON,
+            text_color=theme.COLOR_ACCENT_TEXT,
+            fg_color=theme.COLOR_ACCENT,
+            hover_color=theme.COLOR_ACCENT_HOVER,
             font=ctk.CTkFont(weight="bold"),
             command=self._trigger_start_process
         )
@@ -113,27 +128,35 @@ class ManualFrame(ctk.CTkFrame):
         self.cancel_btn = ctk.CTkButton(
             self.input_card,
             text="Cancel",
-            height=42,
-            width=85,
+            height=40,
+            width=80,
+            corner_radius=theme.RADIUS_BUTTON,
             text_color="#FFFFFF",
-            fg_color="#c0392b",
-            hover_color="#922b21",
+            fg_color=theme.COLOR_DANGER,
+            hover_color=theme.COLOR_DANGER_HOVER,
             font=ctk.CTkFont(weight="bold"),
             state="disabled",
             command=self._trigger_cancel_process
         )
-        self.cancel_btn.grid(row=0, column=4, padx=(0, 15), pady=12)
+        self.cancel_btn.grid(row=0, column=4, padx=(0, 14), pady=12)
 
         # --- Interactive Queue Card ---
-        self.queue_card = ctk.CTkFrame(self, corner_radius=15)
+        self.queue_card = ctk.CTkFrame(
+            self,
+            corner_radius=theme.RADIUS_CARD,
+            fg_color=theme.COLOR_CARD_BG,
+            border_width=1,
+            border_color=theme.COLOR_CARD_BORDER
+        )
         self.queue_card.grid(row=2, column=0, padx=30, pady=6, sticky="ew")
         self.queue_card.grid_columnconfigure(1, weight=1)
 
         # Queue Header
         self.queue_header_label = ctk.CTkLabel(
             self.queue_card,
-            text="📋 Video Queue",
-            font=ctk.CTkFont(size=15, weight="bold")
+            text="Batch Queue",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=theme.COLOR_TEXT_PRIMARY
         )
         self.queue_header_label.grid(row=0, column=0, padx=(18, 10), pady=(12, 6), sticky="w")
 
@@ -141,40 +164,44 @@ class ManualFrame(ctk.CTkFrame):
             self.queue_card,
             text="0 queued • 0 processing • 0 done",
             font=ctk.CTkFont(size=12),
-            text_color="#a0a0a0"
+            text_color=theme.COLOR_TEXT_MUTED
         )
         self.queue_summary_label.grid(row=0, column=1, padx=5, pady=(12, 6), sticky="w")
 
         self.clear_completed_btn = ctk.CTkButton(
             self.queue_card,
-            text="🗑️ Clear Completed",
+            text="Clear Completed",
             height=28,
-            width=120,
+            width=115,
+            corner_radius=theme.RADIUS_BUTTON,
             font=ctk.CTkFont(size=11),
-            fg_color="#34495e",
-            hover_color="#2c3e50",
+            text_color=theme.COLOR_TEXT_MUTED,
+            fg_color=theme.COLOR_HOVER_MUTED,
+            hover_color="#363a44",
             command=self._trigger_clear_completed
         )
-        self.clear_completed_btn.grid(row=0, column=2, padx=(0, 8), pady=(12, 6), sticky="e")
+        self.clear_completed_btn.grid(row=0, column=2, padx=(0, 6), pady=(12, 6), sticky="e")
 
         self.clear_all_btn = ctk.CTkButton(
             self.queue_card,
             text="Clear All",
             height=28,
-            width=80,
+            width=75,
+            corner_radius=theme.RADIUS_BUTTON,
             font=ctk.CTkFont(size=11),
-            fg_color="#7f8c8d",
-            hover_color="#636e72",
+            text_color=theme.COLOR_TEXT_MUTED,
+            fg_color=theme.COLOR_HOVER_MUTED,
+            hover_color="#363a44",
             command=self._trigger_clear_all
         )
-        self.clear_all_btn.grid(row=0, column=3, padx=(0, 18), pady=(12, 6), sticky="e")
+        self.clear_all_btn.grid(row=0, column=3, padx=(0, 16), pady=(12, 6), sticky="e")
 
         # Scrollable Queue List
         self.queue_scroll = ctk.CTkScrollableFrame(
             self.queue_card,
             height=165,
-            corner_radius=8,
-            fg_color="#181818"
+            corner_radius=theme.RADIUS_INPUT,
+            fg_color=theme.COLOR_INPUT_BG
         )
         self.queue_scroll.grid(row=1, column=0, columnspan=4, padx=15, pady=(0, 12), sticky="ew")
         self.queue_scroll.grid_columnconfigure(0, weight=1)
@@ -186,16 +213,28 @@ class ManualFrame(ctk.CTkFrame):
             self,
             text="Status: Ready",
             font=ctk.CTkFont(size=13, weight="bold"),
-            text_color="#a0a0a0"
+            text_color=theme.COLOR_TEXT_MUTED
         )
         self.manual_status_label.grid(row=3, column=0, padx=30, pady=(6, 0), sticky="w")
         
-        self.manual_progress = ctk.CTkProgressBar(self, mode="indeterminate", height=8)
+        self.manual_progress = ctk.CTkProgressBar(
+            self,
+            mode="indeterminate",
+            height=6,
+            progress_color=theme.COLOR_ACCENT,
+            corner_radius=3
+        )
         self.manual_progress.grid(row=4, column=0, padx=30, pady=(3, 4), sticky="ew")
         self.manual_progress.set(0)
 
         # --- Console Output Card ---
-        self.console_card = ctk.CTkFrame(self, corner_radius=15)
+        self.console_card = ctk.CTkFrame(
+            self,
+            corner_radius=theme.RADIUS_CARD,
+            fg_color=theme.COLOR_CARD_BG,
+            border_width=1,
+            border_color=theme.COLOR_CARD_BORDER
+        )
         self.console_card.grid(row=5, column=0, padx=30, pady=(4, 15), sticky="nsew")
         self.console_card.grid_columnconfigure(0, weight=1)
         self.console_card.grid_rowconfigure(0, weight=1)
@@ -203,15 +242,16 @@ class ManualFrame(ctk.CTkFrame):
         self.console_box = ctk.CTkTextbox(
             self.console_card,
             state="disabled",
-            fg_color="#121212",
-            font=ctk.CTkFont(family="Consolas", size=12)
+            fg_color=theme.COLOR_INPUT_BG,
+            font=ctk.CTkFont(family=theme.FONT_FAMILY_MONO, size=12),
+            corner_radius=theme.RADIUS_INPUT
         )
-        self.console_box.grid(row=0, column=0, padx=15, pady=12, sticky="nsew")
+        self.console_box.grid(row=0, column=0, padx=12, pady=12, sticky="nsew")
         
-        self.console_box.tag_config("error", foreground="#ff4d4d")
-        self.console_box.tag_config("success", foreground="#2ecc71")
-        self.console_box.tag_config("ai", foreground="#00d2ff")
-        self.console_box.tag_config("ffmpeg", foreground="#f39c12")
+        self.console_box.tag_config("error", foreground=theme.COLOR_DANGER)
+        self.console_box.tag_config("success", foreground=theme.COLOR_SUCCESS)
+        self.console_box.tag_config("ai", foreground=theme.COLOR_ACCENT)
+        self.console_box.tag_config("ffmpeg", foreground=theme.COLOR_WARNING)
 
         # Setup Drag and Drop if windnd is supported
         if HAS_WINDND:
