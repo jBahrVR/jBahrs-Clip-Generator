@@ -17,6 +17,12 @@ try:
 except Exception:
     pass
 
+for pkg in ['faster_whisper', 'ctranslate2', 'tokenizers', 'onnxruntime']:
+    try:
+        datas += collect_data_files(pkg)
+    except Exception:
+        pass
+
 if os.path.exists('app_icon.ico'):
     datas.append(('app_icon.ico', '.'))
 

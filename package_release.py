@@ -74,6 +74,22 @@ def copy_companion_dependencies():
             shutil.copy2(src, dst)
             print(f"  + Copied {doc}")
 
+    # Explicit safeguard: ensure faster_whisper VAD assets (silero_vad_v6.onnx) are bundled
+    try:
+        import faster_whisper
+        fw_assets_src = os.path.join(os.path.dirname(faster_whisper.__file__), "assets")
+        fw_assets_dst = os.path.join(APP_DIST_DIR, "_internal", "faster_whisper", "assets")
+        if os.path.isdir(fw_assets_src):
+            os.makedirs(fw_assets_dst, exist_ok=True)
+            for f in os.listdir(fw_assets_src):
+                s = os.path.join(fw_assets_src, f)
+                d = os.path.join(fw_assets_dst, f)
+                if os.path.isfile(s) and not os.path.exists(d):
+                    shutil.copy2(s, d)
+                    print(f"  + Bundled faster_whisper asset: {f}")
+    except Exception as e:
+        print(f"  ⚠️ faster_whisper asset check warning: {e}")
+
 def create_release_archives(version_tag):
     print("🗜️ Creating release ZIP archives...")
     release_zip_name = f"jBahrs-Clip-Generator-{version_tag}-Windows.zip"
