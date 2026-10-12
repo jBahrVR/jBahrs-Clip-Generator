@@ -43,7 +43,7 @@ class ManualFrame(ctk.CTkFrame):
         self.on_item_orientation_changed = on_item_orientation_changed
         self.on_files_dropped = on_files_dropped
 
-        self.available_profiles: List[str] = ["Omni-Genre Broad Net"]
+        self.available_profiles: List[str] = ["Auto-Detect (Adaptive AI)", "Omni-Genre Broad Net"]
         self.queue_items_cache: List[Any] = []
 
         self.grid_columnconfigure(0, weight=1)

@@ -637,7 +637,7 @@ def _generate_thumbnail(target_for_thumb, thumb_file, start_time, end_time, logg
         raise RuntimeError(f"FFmpeg thumbnail generation failed with exit code {ret}: {error_msg}")
 
 
-def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, vertical_export, vertical_mode, config, logger, is_cancelled, stream_count=1, audio_downmix=True, target_orientation=None):
+def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, vertical_export, vertical_mode, config, logger, is_cancelled, stream_count=1, audio_downmix=True, target_orientation=None, is_source_vertical=False):
     if is_cancelled and is_cancelled():
         if logger: logger("🛑 Clip extraction aborted by user.")
         return None
@@ -650,7 +650,10 @@ def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec,
     if start_time is None or end_time is None:
         return None
 
-    output_file = os.path.join(output_dir, f"{base_name}_clip{i+1}_score{clean_score}.mp4")
+    if is_source_vertical:
+        output_file = os.path.join(output_dir, f"{base_name}_clip{i+1}_score{clean_score}_vertical.mp4")
+    else:
+        output_file = os.path.join(output_dir, f"{base_name}_clip{i+1}_score{clean_score}.mp4")
     json_meta_file = os.path.join(output_dir, f"{base_name}_clip{i+1}_score{clean_score}.json")
 
     created_files_for_clip = []
@@ -667,8 +670,8 @@ def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec,
         with open(json_meta_file, 'w', encoding='utf-8') as meta_f:
             json.dump(clip, meta_f, indent=4)
             
-        # --- VERTICAL AUTO-CROPPER ---
-        if vertical_export:
+        # --- VERTICAL AUTO-CROPPER (only for horizontal sources) ---
+        if vertical_export and not is_source_vertical:
             vert_output = output_file.replace(".mp4", "_vertical.mp4")
             
             if is_cancelled and is_cancelled():
@@ -728,8 +731,8 @@ def _process_single_clip(i, clip, file_path, base_name, output_dir, video_codec,
                         pass
 
         # --- THUMBNAIL GENERATOR ---
-        target_for_thumb = vert_output if vertical_export else output_file
-        thumb_file = output_file.replace(".mp4", ".jpg")
+        target_for_thumb = vert_output if (vertical_export and not is_source_vertical) else output_file
+        thumb_file = output_file.replace("_vertical.mp4", ".mp4").replace(".mp4", ".jpg")
 
         if is_cancelled and is_cancelled():
             if logger: logger("🛑 Clip extraction aborted by user.")
@@ -754,11 +757,17 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None, 
     
     # Auto-detect native video dimensions and aspect ratio
     width, height, aspect_desc = get_video_dimensions_and_aspect(file_path)
+    is_source_vertical = (height > width) if (width > 0 and height > 0) else False
     if logger:
         logger(f"📐 Auto-detected source aspect ratio: {aspect_desc}")
-        logger("🎞️ Preserving native video format in full quality (no crop manipulation)")
+        if is_source_vertical:
+            logger("📱 Source video is natively vertical (portrait). Preserving full quality without re-cropping.")
+        else:
+            logger("🎞️ Preserving native video format in full quality (no crop manipulation)")
 
-    if target_orientation == "Vertical Only (9:16)":
+    if is_source_vertical:
+        vertical_export = False
+    elif target_orientation == "Vertical Only (9:16)":
         vertical_export = True
     elif target_orientation in ("Horizontal Only (16:9)", "Native", "Auto", "Auto-Detect (Native)"):
         vertical_export = False
@@ -788,7 +797,8 @@ def extract_clips(file_path, clips_data, output_dir, logger, is_cancelled=None, 
             vr_stabilization, vertical_export, vertical_mode,
             config, logger, is_cancelled,
             stream_count=stream_count, audio_downmix=audio_downmix,
-            target_orientation=target_orientation
+            target_orientation=target_orientation,
+            is_source_vertical=is_source_vertical
         )
 
         if clip_files is None:
@@ -1280,6 +1290,142 @@ def _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger):
 
     return all_clips
 
+def _call_llm_text(system_prompt: str, user_content: str, config: dict, chat_model: str, logger=None) -> str:
+    """Helper to query the configured LLM for plain text or JSON output."""
+    chat_model = chat_model.replace(" (Deprecated)", "").strip()
+    openai_key = config.get("openai", {}).get("api_key", "")
+    openai_base_url = config.get("openai", {}).get("base_url", "")
+    google_key = config.get("google", {}).get("api_key", "")
+    anthropic_key = config.get("anthropic", {}).get("api_key", "")
+    xai_key = config.get("xai", {}).get("api_key", "")
+
+    is_gemini_model = (chat_model.startswith("gemini") or "gemini" in chat_model) and "openrouter" not in chat_model
+    is_anthropic_model = chat_model.startswith("claude") and "openrouter" not in chat_model
+    is_grok_model = chat_model.startswith("grok")
+    is_deepseek_model = chat_model.startswith("deepseek")
+    is_openrouter = "openrouter" in chat_model or (openai_base_url != "" and not is_grok_model and not is_deepseek_model)
+
+    if is_grok_model:
+        openai_key = xai_key
+        openai_base_url = "https://api.x.ai/v1"
+    elif is_deepseek_model and not openai_base_url:
+        openai_base_url = "https://api.deepseek.com"
+
+    if is_gemini_model and not is_openrouter:
+        if not HAS_GEMINI:
+            raise RuntimeError("google-genai module missing")
+        client = genai.Client(api_key=google_key)
+        response = client.models.generate_content(
+            model=chat_model,
+            contents=user_content,
+            config={
+                "system_instruction": system_prompt
+            }
+        )
+        return response.text.strip()
+
+    elif is_anthropic_model:
+        if not HAS_ANTHROPIC:
+            raise RuntimeError("anthropic python module missing")
+        client = anthropic.Anthropic(api_key=anthropic_key)
+        response = client.messages.create(
+            model=chat_model,
+            max_tokens=4000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_content}]
+        )
+        return response.content[0].text.strip()
+
+    else:
+        client_args = {"api_key": openai_key}
+        if openai_base_url:
+            client_args["base_url"] = openai_base_url
+        client = OpenAI(**client_args)
+        req_params = {
+            "model": chat_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content}
+            ]
+        }
+        response = client.chat.completions.create(**req_params)
+        return (response.choices[0].message.content or "").strip()
+
+def analyze_content_and_synthesize_prompt(segments: list, config: dict, chat_model: str, logger=None) -> str:
+    """Pass 1 Content Profiler: Analyzes transcript cues, audio energy, and combat tags
+    to classify the video content and automatically synthesize a tailored virality prompt."""
+    if not segments:
+        return config.get("prompts", {}).get("profiles", {}).get("Omni-Genre Broad Net", "")
+
+    # Calculate acoustic summary metrics
+    total_segments = len(segments)
+    combat_count = sum(1 for s in segments if "[ACTION: COMBAT]" in s.get("text", ""))
+    loud_count = sum(1 for s in segments if "[LOUDNESS: 100%]" in s.get("text", "") or "[LOUDNESS: 9" in s.get("text", ""))
+    non_verbal_count = sum(1 for s in segments if "[ACTION: NON-VERBAL" in s.get("text", ""))
+
+    combat_ratio = combat_count / max(1, total_segments)
+    intensity_ratio = loud_count / max(1, total_segments)
+
+    # Sample a representative cross-section of the transcript to keep classification fast and cheap
+    # (Beginning 30 segments, Middle 30 segments, Ending 30 segments)
+    if total_segments <= 90:
+        sample_segments = segments
+    else:
+        mid_idx = total_segments // 2
+        sample_segments = segments[:30] + segments[mid_idx-15:mid_idx+15] + segments[-30:]
+
+    sample_text = "".join(
+        f"[{seg.get('start', 0.0):.1f}s - {seg.get('end', 0.0):.1f}s] {seg.get('text', '').strip()}\n"
+        for seg in sample_segments
+    )
+
+    system_classifier = (
+        "You are an expert Social Video Strategist and Content Analyst specializing in gaming, VR, and streaming content.\n"
+        "Your task is to analyze this sampled transcript and audio metrics, identify the exact genre/game/tone, "
+        "and produce a tailored, high-converting virality prompt and scoring rubric for the extraction LLM.\n\n"
+        "Respond STRICTLY in JSON format with two keys:\n"
+        "1. 'summary': A concise 1-2 sentence description of the detected content (e.g., 'Ghosts of Tabor VR tactical extraction shooter with high paranoia and sudden CQB combat spikes').\n"
+        "2. 'custom_prompt': A comprehensive system prompt instructing the extraction model how to find viral clips (15-90s) specifically for this type of content. "
+        "The custom prompt MUST instruct the model to output strictly valid JSON with a 'clips' array containing start_time, end_time, virality_score, and reasoning. "
+        "It MUST include the 'CLIP THAT' override rule (score 10 if anyone says 'clip it' or 'clip that'). "
+        "It MUST specifically define what constitutes a 9-10 score for this identified game/content type."
+    )
+
+    user_query = (
+        f"Acoustic Metrics:\n"
+        f"- Total segments: {total_segments}\n"
+        f"- Combat transient events: {combat_count} ({combat_ratio*100:.1f}% of segments)\n"
+        f"- High loudness spikes: {loud_count} ({intensity_ratio*100:.1f}% of segments)\n"
+        f"- Synthesized non-verbal action moments: {non_verbal_count}\n\n"
+        f"Sampled Transcript Cross-Section:\n{sample_text}\n\n"
+        f"Analyze the content and return the JSON object."
+    )
+
+    if logger:
+        logger("🧠 [Pass 1] AI Analyzing content style, VR dynamics, and acoustic profile...")
+
+    try:
+        raw_res = _call_llm_text(system_classifier, user_query, config, chat_model, logger=logger)
+        if "```json" in raw_res:
+            raw_res = raw_res.split("```json")[-1].split("```")[0].strip()
+        elif "```" in raw_res:
+            raw_res = raw_res.split("```")[-1].split("```")[0].strip()
+
+        data = json.loads(raw_res)
+        summary = data.get("summary", "Custom Content")
+        custom_prompt = data.get("custom_prompt", "").strip()
+
+        if custom_prompt:
+            if logger:
+                logger(f"🎯 [Pass 1] Identified Content: {summary}")
+                logger("✨ Generated tailored virality rubric for targeted clip extraction!")
+            return custom_prompt
+    except Exception as e:
+        if logger:
+            logger(f"⚠️ Content profiling fallback ({e}). Using Omni-Genre prompt.")
+
+    return config.get("prompts", {}).get("profiles", {}).get("Omni-Genre Broad Net", "")
+
 def parse_timestamp_to_seconds(val):
     """Safely converts timestamps into float seconds.
     Supports numbers, string seconds ('14.5s', '14.5'), and clock formats ('01:23:45.6', '02:30').
@@ -1373,7 +1519,7 @@ def normalize_and_validate_clips(raw_clips, max_duration=None, logger=None):
 
     return valid_clips
 
-def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None, is_cancelled=None, target_orientation=None):
+def process_video(file_path, prompt_profile="Auto-Detect (Adaptive AI)", logger=None, is_cancelled=None, target_orientation=None):
     """Main orchestration function for analyzing and cutting clips."""
     config = config_manager.load_config()
     chat_model = config.get("openai", {}).get("chat_model", "gpt-4o")
@@ -1393,7 +1539,19 @@ def process_video(file_path, prompt_profile="Omni-Genre Broad Net", logger=None,
 
     if is_cancelled and is_cancelled(): return []
 
-    prompt_text = config.get("prompts", {}).get("profiles", {}).get(prompt_profile, "Find the best 15-90s moments. Output JSON.")
+    # Adaptive AI vs Static Prompt Profile
+    is_auto_detect = (
+        not prompt_profile or
+        prompt_profile in ("Auto-Detect (Adaptive AI)", "Auto-Detect", "Auto") or
+        "auto-detect" in prompt_profile.lower()
+    )
+
+    if is_auto_detect:
+        prompt_text = analyze_content_and_synthesize_prompt(segments, config, chat_model, logger=logger)
+    else:
+        prompt_text = config.get("prompts", {}).get("profiles", {}).get(prompt_profile, "Find the best 15-90s moments. Output JSON.")
+
+    if is_cancelled and is_cancelled(): return []
 
     all_clips = _generate_clips_with_llm(segments, config, chat_model, prompt_text, logger)
 

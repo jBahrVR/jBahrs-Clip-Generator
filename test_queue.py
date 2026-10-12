@@ -10,7 +10,7 @@ class TestQueueItem(unittest.TestCase):
         item = QueueItem(source="video.mp4")
         self.assertTrue(len(item.id) >= 6)
         self.assertEqual(item.source, "video.mp4")
-        self.assertEqual(item.prompt_profile, "Omni-Genre Broad Net")
+        self.assertEqual(item.prompt_profile, "Auto-Detect (Adaptive AI)")
         self.assertEqual(item.target_orientation, "Both (16:9 + 9:16)")
         self.assertEqual(item.status, "Queued")
         self.assertEqual(item.progress, 0.0)

@@ -13,7 +13,7 @@ class QueueItem:
     """
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     source: str = ""
-    prompt_profile: str = "Omni-Genre Broad Net"
+    prompt_profile: str = "Auto-Detect (Adaptive AI)"
     target_orientation: str = "Both (16:9 + 9:16)"
     status: str = "Queued"  # "Queued", "Downloading", "Transcribing", "Analyzing AI", "Cutting Clips", "Done", "Failed", "Cancelled"
     progress: float = 0.0
@@ -58,7 +58,7 @@ class QueueItem:
         return cls(
             id=data.get("id", uuid.uuid4().hex[:8]),
             source=data.get("source", ""),
-            prompt_profile=data.get("prompt_profile", "Omni-Genre Broad Net"),
+            prompt_profile=data.get("prompt_profile", "Auto-Detect (Adaptive AI)"),
             target_orientation=data.get("target_orientation", "Both (16:9 + 9:16)"),
             status=data.get("status", "Queued"),
             progress=data.get("progress", 0.0),
@@ -101,7 +101,7 @@ class QueueManager:
     def add_item(
         self,
         source: str,
-        prompt_profile: str = "Omni-Genre Broad Net",
+        prompt_profile: str = "Auto-Detect (Adaptive AI)",
         target_orientation: str = "Both (16:9 + 9:16)"
     ) -> QueueItem:
         """Adds a single video source to the queue."""
@@ -118,7 +118,7 @@ class QueueManager:
     def add_items(
         self,
         sources: List[str],
-        prompt_profile: str = "Omni-Genre Broad Net",
+        prompt_profile: str = "Auto-Detect (Adaptive AI)",
         target_orientation: str = "Both (16:9 + 9:16)"
     ) -> List[QueueItem]:
         """Adds multiple video sources to the queue."""

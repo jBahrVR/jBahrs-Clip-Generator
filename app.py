@@ -1130,8 +1130,13 @@ class ClipGenApp(ctk.CTk):
             clips_dir = self.config.get('settings', {}).get('clips_dir', '')
             for f in files_to_delete:
                 mp4_path = os.path.join(clips_dir, f)
+                companion_mp4 = os.path.join(
+                    clips_dir,
+                    f.replace(".mp4", "_vertical.mp4") if "_vertical" not in f else f.replace("_vertical.mp4", ".mp4")
+                )
                 json_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".json"))
                 jpg_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", ".jpg"))
+                ass_path = os.path.join(clips_dir, f.replace("_vertical.mp4", ".mp4").replace(".mp4", "_subtitles.ass"))
                 
                 # Invalidate from caches
                 if 'gallery_meta_cache' in self.__dict__:
@@ -1139,7 +1144,7 @@ class ClipGenApp(ctk.CTk):
                 if 'thumbnail_cache' in self.__dict__:
                     self.thumbnail_cache.evict(jpg_path)
 
-                for p in [mp4_path, json_path, jpg_path]:
+                for p in [mp4_path, companion_mp4, json_path, jpg_path, ass_path]:
                     if os.path.exists(p):
                         try:
                             os.remove(p)

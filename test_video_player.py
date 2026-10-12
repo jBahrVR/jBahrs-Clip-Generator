@@ -290,6 +290,7 @@ class TestVideoPreviewWidget(unittest.TestCase):
         self.assertTrue(loaded)
         self.assertEqual(self.widget.view_mode, "horizontal")
         self.widget.mode_selector.set.assert_called_with("16:9 Only")
+        self.widget.badge_left.configure.assert_called_with(text="16:9 Horizontal Source", text_color="#3a7ebf")
         self.widget.close()
 
     def test_load_video_single_vertical(self):
@@ -297,6 +298,8 @@ class TestVideoPreviewWidget(unittest.TestCase):
         self.assertTrue(loaded)
         self.assertEqual(self.widget.view_mode, "vertical")
         self.widget.mode_selector.set.assert_called_with("9:16 Only")
+        self.widget.badge_left.configure.assert_called_with(text="9:16 Vertical Source", text_color="#2ecc71")
+        self.widget.badge_right.configure.assert_called_with(text="9:16 Vertical Source", text_color="#2ecc71")
         self.widget.close()
 
     def test_view_mode_selection(self):

@@ -1,6 +1,7 @@
 import unittest
 import unittest.mock
 import os
+import json
 import subprocess
 import numpy as np
 import torch
@@ -1010,6 +1011,146 @@ class TestClipValidationAndNormalization(unittest.TestCase):
         # _process_single_clip positional: (i, clip, file_path, base_name, output_dir, video_codec, audio_codec_flags, hardware_encoding, vr_stabilization, vertical_export, ...)
         vertical_export_arg = called_args[9]
         self.assertTrue(vertical_export_arg)
+
+
+class TestAdaptiveContentProfiling(unittest.TestCase):
+    @unittest.mock.patch('editor._call_llm_text')
+    def test_analyze_content_and_synthesize_prompt_success(self, mock_call_llm):
+        mock_response = json.dumps({
+            "summary": "Ghosts of Tabor VR Tactical Shooter",
+            "custom_prompt": "You are a specialized VR Tactical Shooter Strategist. Look for gunfights, extractions, and jump scares."
+        })
+        mock_call_llm.return_value = f"```json\n{mock_response}\n```"
+
+        segments = [
+            {"start": 0.0, "end": 5.0, "text": "[LOUDNESS: 20%] Creeping down the hallway in Tabor."},
+            {"start": 5.0, "end": 10.0, "text": "[LOUDNESS: 95%] [ACTION: COMBAT] Enemy contact! Downed one!"},
+            {"start": 10.0, "end": 15.0, "text": "[LOUDNESS: 80%] Clip that right now!"}
+        ]
+        config = {"prompts": {"profiles": {"Omni-Genre Broad Net": "Default Prompt"}}}
+        logs = []
+        result = editor.analyze_content_and_synthesize_prompt(
+            segments, config, "gpt-4o", logger=logs.append
+        )
+
+        mock_call_llm.assert_called_once()
+        self.assertIn("VR Tactical Shooter Strategist", result)
+        self.assertTrue(any("Identified Content: Ghosts of Tabor" in l for l in logs))
+
+    @unittest.mock.patch('editor._call_llm_text', side_effect=Exception("API connection timeout"))
+    def test_analyze_content_and_synthesize_prompt_fallback_on_error(self, mock_call_llm):
+        segments = [{"start": 0.0, "end": 5.0, "text": "Testing speech"}]
+        config = {"prompts": {"profiles": {"Omni-Genre Broad Net": "Fallback Omni Prompt"}}}
+        logs = []
+        result = editor.analyze_content_and_synthesize_prompt(
+            segments, config, "gpt-4o", logger=logs.append
+        )
+        self.assertEqual(result, "Fallback Omni Prompt")
+        self.assertTrue(any("Content profiling fallback" in l for l in logs))
+
+    @unittest.mock.patch('editor.analyze_content_and_synthesize_prompt', return_value="Custom Synthesized Prompt")
+    @unittest.mock.patch('editor._generate_clips_with_llm', return_value=[])
+    @unittest.mock.patch('editor._transcribe_audio_to_segments', return_value=[{"start": 0.0, "end": 10.0, "text": "Speech"}])
+    @unittest.mock.patch('editor._validate_api_keys', return_value=True)
+    @unittest.mock.patch('config_manager.load_config')
+    def test_process_video_triggers_adaptive_profiling_when_selected(
+        self, mock_load_config, mock_validate_keys, mock_transcribe, mock_gen_clips, mock_profile
+    ):
+        mock_load_config.return_value = {
+            "settings": {"clips_dir": "C:/fake_clips"},
+            "openai": {"chat_model": "gpt-4o", "api_key": "fake_key"},
+            "prompts": {"profiles": {}}
+        }
+
+        editor.process_video("vod.mp4", prompt_profile="Auto-Detect (Adaptive AI)")
+        mock_profile.assert_called_once()
+        mock_gen_clips.assert_called_once()
+        self.assertEqual(mock_gen_clips.call_args[0][3], "Custom Synthesized Prompt")
+
+    @unittest.mock.patch('editor.analyze_content_and_synthesize_prompt')
+    @unittest.mock.patch('editor._generate_clips_with_llm', return_value=[])
+    @unittest.mock.patch('editor._transcribe_audio_to_segments', return_value=[{"start": 0.0, "end": 10.0, "text": "Speech"}])
+    @unittest.mock.patch('editor._validate_api_keys', return_value=True)
+    @unittest.mock.patch('config_manager.load_config')
+    def test_process_video_skips_profiling_for_explicit_static_profile(
+        self, mock_load_config, mock_validate_keys, mock_transcribe, mock_gen_clips, mock_profile
+    ):
+        mock_load_config.return_value = {
+            "settings": {"clips_dir": "C:/fake_clips"},
+            "openai": {"chat_model": "gpt-4o", "api_key": "fake_key"},
+            "prompts": {"profiles": {"Manual Profile": "My Exact Custom Prompt"}}
+        }
+
+        editor.process_video("vod.mp4", prompt_profile="Manual Profile")
+        mock_profile.assert_not_called()
+        mock_gen_clips.assert_called_once()
+        self.assertEqual(mock_gen_clips.call_args[0][3], "My Exact Custom Prompt")
+
+
+class TestNativeVerticalSourceHandling(unittest.TestCase):
+    @unittest.mock.patch('editor._generate_thumbnail')
+    @unittest.mock.patch('editor._generate_vertical_clip')
+    @unittest.mock.patch('editor._generate_horizontal_clip')
+    @unittest.mock.patch('builtins.open', new_callable=unittest.mock.mock_open)
+    def test_process_single_clip_native_vertical_produces_single_vertical_file(
+        self, mock_open, mock_horiz, mock_vert, mock_thumb
+    ):
+        clip = {
+            "start_time": 10.0,
+            "end_time": 25.0,
+            "virality_score": 9.5,
+            "reasoning": "Insane vertical short play"
+        }
+        created = editor._process_single_clip(
+            i=0,
+            clip=clip,
+            file_path="C:/vods/vertical_stream.mp4",
+            base_name="vertical_stream",
+            output_dir="C:/clips",
+            video_codec="libx264",
+            audio_codec_flags=["-c:a", "copy"],
+            hardware_encoding=False,
+            vr_stabilization=False,
+            vertical_export=True,  # Even if vertical_export was requested
+            vertical_mode="Standard Center Crop",
+            config={},
+            logger=None,
+            is_cancelled=None,
+            stream_count=1,
+            audio_downmix=False,
+            is_source_vertical=True
+        )
+
+        # Must produce exactly one file, with _vertical.mp4 suffix
+        self.assertEqual(len(created), 1)
+        self.assertTrue(created[0].endswith("vertical_stream_clip1_score95_vertical.mp4"))
+        # _generate_horizontal_clip (native full-quality cut) must be called
+        mock_horiz.assert_called_once()
+        # _generate_vertical_clip (crop manipulation) must NOT be called for already-vertical footage
+        mock_vert.assert_not_called()
+
+    @unittest.mock.patch('editor.get_video_dimensions_and_aspect', return_value=(1080, 1920, "9:16 (Vertical, 1080x1920)"))
+    @unittest.mock.patch('editor._process_single_clip', return_value=["clip1_vertical.mp4"])
+    def test_extract_clips_detects_vertical_and_disables_redundant_crop(self, mock_process, mock_dims):
+        logs = []
+        created = editor.extract_clips(
+            file_path="phone_stream.mp4",
+            clips_data={"clips": [{"start_time": 0, "end_time": 15}]},
+            output_dir="out_dir",
+            logger=logs.append,
+            target_orientation="Both (16:9 + 9:16)"
+        )
+        self.assertEqual(created, ["clip1_vertical.mp4"])
+        mock_dims.assert_called_once_with("phone_stream.mp4")
+        self.assertTrue(any("natively vertical" in l for l in logs))
+
+        # Check call args to _process_single_clip
+        called_args = mock_process.call_args[0]
+        called_kwargs = mock_process.call_args[1]
+        # vertical_export positional index 9 must be False
+        self.assertFalse(called_args[9])
+        # is_source_vertical must be True
+        self.assertTrue(called_kwargs.get("is_source_vertical"))
 
 
 if __name__ == '__main__':

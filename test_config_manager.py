@@ -40,7 +40,7 @@ class TestConfigDefaultsAndTypes(unittest.TestCase):
         self.assertEqual(config.google.api_key, "")
 
         self.assertEqual(config.settings.download_quality, "Best")
-        self.assertEqual(config.prompts.active_profile, "Omni-Genre Broad Net")
+        self.assertEqual(config.prompts.active_profile, "Auto-Detect (Adaptive AI)")
         self.assertEqual(config.auto_scheduler.platform, "YouTube")
 
 

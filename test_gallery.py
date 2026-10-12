@@ -191,9 +191,11 @@ class TestGalleryManager(unittest.TestCase):
 
         cache = GalleryMetadataCache()
 
-        # Test orientation filtering
+        # Test orientation filtering with companion deduplication
         all_clips = scan_and_filter_clips(self.clips_dir, type_filter="All", meta_cache=cache)
-        self.assertEqual(len(all_clips), 5)
+        # gameplay_1 and gameplay_2 have vertical companion cuts which are deduplicated in All view
+        self.assertEqual(len(all_clips), 3)
+        self.assertEqual({x["filename"] for x in all_clips}, {"gameplay_1.mp4", "gameplay_2.mp4", "gameplay_3.mp4"})
 
         h_clips = scan_and_filter_clips(self.clips_dir, type_filter="Horizontal", meta_cache=cache)
         self.assertEqual(len(h_clips), 3)
@@ -203,7 +205,7 @@ class TestGalleryManager(unittest.TestCase):
         self.assertEqual(len(v_clips), 2)
         self.assertTrue(all("_vertical" in x["filename"] for x in v_clips))
 
-        # Test score filtering with Date sorting (critical bug fix test)
+        # Test score filtering with Date sorting (companion deduplicated)
         high_score_clips = scan_and_filter_clips(
             self.clips_dir,
             sort_mode="Date (Newest)",
@@ -211,15 +213,25 @@ class TestGalleryManager(unittest.TestCase):
             score_filter="7+",
             meta_cache=cache
         )
-        self.assertEqual(len(high_score_clips), 2)  # gameplay_2 and gameplay_2_vertical
+        self.assertEqual(len(high_score_clips), 1)  # gameplay_2 (score 8.5)
         self.assertTrue(all(x["score"] >= 7.0 for x in high_score_clips))
+        self.assertEqual(high_score_clips[0]["filename"], "gameplay_2.mp4")
 
-        # Test sorting
+        # Test sorting (gameplay_2 inherited the newer companion ctime=201)
         date_sorted = scan_and_filter_clips(self.clips_dir, sort_mode="Date (Newest)", meta_cache=cache)
-        self.assertEqual(date_sorted[0]["filename"], "gameplay_2_vertical.mp4")
+        self.assertEqual(date_sorted[0]["filename"], "gameplay_2.mp4")
 
         virality_sorted = scan_and_filter_clips(self.clips_dir, sort_mode="Virality (High)", meta_cache=cache)
         self.assertEqual(virality_sorted[0]["score"], 8.5)
+
+        # Standalone vertical clip (no horizontal partner) should still appear in "All" and "Vertical"
+        standalone_v = os.path.join(self.clips_dir, "standalone_shorts_vertical.mp4")
+        with open(standalone_v, "wb") as f:
+            f.write(b"mp4_content")
+        os.utime(standalone_v, (300, 300))
+        all_with_standalone = scan_and_filter_clips(self.clips_dir, type_filter="All", meta_cache=cache)
+        self.assertEqual(len(all_with_standalone), 4)
+        self.assertTrue(any(x["filename"] == "standalone_shorts_vertical.mp4" for x in all_with_standalone))
 
 
 class TestAppGalleryAsync(unittest.TestCase):

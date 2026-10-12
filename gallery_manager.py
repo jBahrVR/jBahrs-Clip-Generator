@@ -183,6 +183,8 @@ def scan_and_filter_clips(
     except OSError:
         return []
 
+    entries_set = set(entries)
+
     for f in entries:
         if not f.endswith(".mp4"):
             continue
@@ -198,6 +200,22 @@ def scan_and_filter_clips(
             continue
         if type_filter == "Vertical" and not is_vertical:
             continue
+
+        # In "All" view, deduplicate companion vertical files if the base horizontal file exists
+        if type_filter == "All" and is_vertical:
+            base_companion = f.replace("_vertical.mp4", ".mp4")
+            if base_companion in entries_set:
+                continue
+
+        # If this is a base clip with a companion vertical cut, use the latest modification timestamp
+        if type_filter == "All" and not is_vertical:
+            companion_vert = f.replace(".mp4", "_vertical.mp4")
+            if companion_vert in entries_set:
+                try:
+                    vert_time = os.path.getmtime(os.path.join(clips_dir, companion_vert))
+                    timestamp = max(timestamp, vert_time)
+                except OSError:
+                    pass
 
         score = cache.get_score(clips_dir, f)
         if score < min_score:

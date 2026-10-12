@@ -32,6 +32,10 @@ COMPANION_BINARIES = ["ffmpeg.exe", "ffprobe.exe", "yt-dlp.exe", "deno.exe"]
 
 def clean_build_artifacts():
     print("🧹 Cleaning previous build and dist directories...")
+    try:
+        subprocess.run(["taskkill", "/F", "/IM", "jBahrs-Clip-Generator.exe"], capture_output=True)
+    except Exception:
+        pass
     if os.path.exists(DIST_DIR):
         shutil.rmtree(DIST_DIR, ignore_errors=True)
     if os.path.exists(BUILD_DIR):

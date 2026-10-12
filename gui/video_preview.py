@@ -153,15 +153,30 @@ class VideoPreviewWidget(ctk.CTkFrame):
             self.timeline_slider.configure(from_=0.0, to=duration if duration > 0 else 1.0)
             self.timeline_slider.set(0.0)
 
+            # Detect whether primary is 16:9 or 9:16
+            is_vertical = bool(
+                self.controller.primary_decoder is not None
+                and self.controller.primary_decoder.aspect_ratio < 1.0
+            )
+
+            # Configure badges to match true aspect ratio
+            if is_vertical:
+                self.badge_left.configure(text="9:16 Vertical Source", text_color="#2ecc71")
+            else:
+                self.badge_left.configure(text="16:9 Horizontal Source", text_color="#3a7ebf")
+
             # Configure view mode selector based on companion availability
             if self.companion_path:
+                self.badge_right.configure(text="9:16 Vertical Cut", text_color="#2ecc71")
                 self.mode_selector.configure(state="normal")
                 self.mode_selector.set("Side-by-Side")
                 self.view_mode = "side_by_side"
             else:
+                self.badge_right.configure(
+                    text="9:16 Vertical Source" if is_vertical else "9:16 Vertical Cut",
+                    text_color="#2ecc71"
+                )
                 self.mode_selector.configure(state="normal")
-                # Detect whether primary is 16:9 or 9:16
-                is_vertical = self.controller.primary_decoder and self.controller.primary_decoder.aspect_ratio < 1.0
                 initial_mode = "9:16 Only" if is_vertical else "16:9 Only"
                 self.mode_selector.set(initial_mode)
                 self.view_mode = "vertical" if is_vertical else "horizontal"
@@ -338,4 +353,8 @@ class VideoPreviewWidget(ctk.CTkFrame):
             self.controller = None
         self._cached_primary_img = None
         self._cached_companion_img = None
+        if hasattr(self, 'badge_left') and self.badge_left:
+            self.badge_left.configure(text="16:9 Horizontal Source", text_color="#3a7ebf")
+        if hasattr(self, 'badge_right') and self.badge_right:
+            self.badge_right.configure(text="9:16 Vertical Cut", text_color="#2ecc71")
         self.play_btn.configure(text="▶ Play", fg_color=["#3a7ebf", "#1f538d"])

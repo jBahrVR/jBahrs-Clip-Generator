@@ -62,8 +62,12 @@ class SettingsConfig:
 
 @dataclass
 class PromptsConfig:
-    active_profile: str = "Omni-Genre Broad Net"
+    active_profile: str = "Auto-Detect (Adaptive AI)"
     profiles: Dict[str, str] = field(default_factory=lambda: {
+        "Auto-Detect (Adaptive AI)": (
+            "Analyze the transcript and audio metrics to automatically identify the game/activity, tone, and genre, "
+            "then generate a tailored virality prompt and rubric to discover the highest-impact moments."
+        ),
         "Omni-Genre Broad Net": (
             "You are the Lead Content Strategist for a viral gaming channel. You are analyzing a chunk of a raw stream transcript. "
             "Each line starts with a timestamp and a loudness level, like [LOUDNESS: 60%] [14.5s - 18.2s]. Use these exact numbers for your start_time and end_time.\n\n"
@@ -106,7 +110,7 @@ class AutoSchedulerConfig:
     target_orientation: str = "Horizontal Only"
     lookback_days: str = "7 Days"
     check_interval: str = "Every 4 Hours"
-    auto_prompt_profile: str = "Omni-Genre Broad Net"
+    auto_prompt_profile: str = "Auto-Detect (Adaptive AI)"
 
 
 @dataclass
@@ -308,8 +312,12 @@ def get_raw_default_dict() -> Dict[str, Any]:
             "subtitle_font_size": 24
         },
         "prompts": {
-            "active_profile": "Omni-Genre Broad Net", 
+            "active_profile": "Auto-Detect (Adaptive AI)", 
             "profiles": {
+                "Auto-Detect (Adaptive AI)": (
+                    "Analyze the transcript and audio metrics to automatically identify the game/activity, tone, and genre, "
+                    "then generate a tailored virality prompt and rubric to discover the highest-impact moments."
+                ),
                 "Omni-Genre Broad Net": (
                     "You are the Lead Content Strategist for a viral gaming channel. You are analyzing a chunk of a raw stream transcript. "
                     "Each line starts with a timestamp and a loudness level, like [LOUDNESS: 60%] [14.5s - 18.2s]. Use these exact numbers for your start_time and end_time.\n\n"
@@ -346,12 +354,12 @@ def get_raw_default_dict() -> Dict[str, Any]:
             }
         },
         "auto_scheduler": {
-            "platform": "YouTube", 
+            "platform": "YouTube",
             "video_type": "Livestreams Only",
             "target_orientation": "Horizontal Only",
             "lookback_days": "7 Days",
             "check_interval": "Every 4 Hours",
-            "auto_prompt_profile": "Omni-Genre Broad Net"
+            "auto_prompt_profile": "Auto-Detect (Adaptive AI)"
         },
         "social": {
             "youtube": {
@@ -409,14 +417,17 @@ def load_config(config_path: Optional[str] = None) -> AppConfig:
             cfg.setdefault("integrations", {"discord_webhook": ""})
             cfg.setdefault("social", get_raw_default_dict()["social"])
             
-            # MIGRATION UPDATE: Force update the default Omni-Genre prompt if they have the old version
+            # MIGRATION UPDATE: Force update default prompts if they have old version or missing Auto-Detect
             prompts = cfg.setdefault("prompts", {})
             profiles = prompts.setdefault("profiles", {})
             default_prompts = get_raw_default_dict()["prompts"]
             
+            if "Auto-Detect (Adaptive AI)" not in profiles:
+                profiles["Auto-Detect (Adaptive AI)"] = default_prompts["profiles"]["Auto-Detect (Adaptive AI)"]
+            
             if "Omni-Genre Broad Net" not in profiles:
                 profiles["Omni-Genre Broad Net"] = default_prompts["profiles"]["Omni-Genre Broad Net"] # type: ignore
-                prompts.setdefault("active_profile", "Omni-Genre Broad Net")
+                prompts.setdefault("active_profile", "Auto-Detect (Adaptive AI)")
             else:
                 old_prompt = profiles["Omni-Genre Broad Net"]
                 if "LOUDNESS: XX%" not in old_prompt or "[ACTION: COMBAT]" not in old_prompt:
